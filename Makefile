@@ -1,13 +1,13 @@
 .PHONY: run dev tidy build
 
 run:
-go run ./cmd/server
+	go run ./cmd/server
 
 dev:
-go run ./cmd/server
+	go run ./cmd/server
 
 tidy:
-go mod tidy
+	go mod tidy
 
 build:
-go build -o bin/server ./cmd/server
+	go build -o bin/server ./cmd/server
