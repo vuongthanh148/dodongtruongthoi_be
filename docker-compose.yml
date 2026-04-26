@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dodongtruongthoi_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dodongtruongthoi
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations/001_create_categories_products_orders.sql:/docker-entrypoint-initdb.d/001_create_categories_products_orders.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d dodongtruongthoi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dodongtruongthoi_network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dodongtruongthoi_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/dodongtruongthoi
+    ports:
+      - "8080:8080"
+    networks:
+      - dodongtruongthoi_network
+
+volumes:
+  postgres_data:
+
+networks:
+  dodongtruongthoi_network:
+    driver: bridge
