@@ -57,6 +57,7 @@ func NewRouter(
 
 		r.Get("/banners", publicHandler.ListBanners)
 		r.Get("/campaigns", publicHandler.ListCampaigns)
+		r.Get("/customer-photos", publicHandler.ListCustomerPhotos)
 		r.Get("/contacts", publicHandler.ListContacts)
 		r.Get("/settings", publicHandler.GetSettings)
 
@@ -99,6 +100,11 @@ func NewRouter(
 				r.Post("/banners", adminHandler.CreateBanner)
 				r.Put("/banners/{id}", adminHandler.UpdateBanner)
 				r.Delete("/banners/{id}", adminHandler.DeleteBanner)
+
+				r.Get("/customer-photos", adminHandler.ListCustomerPhotos)
+				r.Post("/customer-photos", adminHandler.UploadCustomerPhoto)
+				r.Put("/customer-photos/{id}", adminHandler.UpdateCustomerPhoto)
+				r.Delete("/customer-photos/{id}", adminHandler.DeleteCustomerPhoto)
 
 				r.Get("/contacts", adminHandler.ListContacts)
 				r.Post("/contacts", adminHandler.CreateContact)

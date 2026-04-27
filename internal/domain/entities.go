@@ -156,3 +156,12 @@ type AdminUser struct {
 	CreatedAt    time.Time `json:"created_at"`
 	LastLoginAt  sql.NullTime `json:"last_login_at,omitempty"`
 }
+
+type CustomerPhoto struct {
+	ID        string    `json:"id"`
+	ImageURL  string    `json:"image_url"`
+	Caption   *string   `json:"caption,omitempty"`
+	SortOrder int       `json:"sort_order"`
+	IsActive  bool      `json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
+}

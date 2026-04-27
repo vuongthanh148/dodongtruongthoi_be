@@ -112,3 +112,12 @@ type SiteSettingsRepository interface {
 	Set(ctx context.Context, key string, value string) error
 	SetBulk(ctx context.Context, settings map[string]string) error
 }
+
+// CustomerPhotoRepository defines customer lifestyle photo operations
+type CustomerPhotoRepository interface {
+	List(ctx context.Context, includeInactive bool) ([]CustomerPhoto, error)
+	Get(ctx context.Context, id string) (CustomerPhoto, bool, error)
+	Create(ctx context.Context, p CustomerPhoto) (CustomerPhoto, error)
+	Update(ctx context.Context, id string, p CustomerPhoto) (CustomerPhoto, error)
+	Delete(ctx context.Context, id string) error
+}

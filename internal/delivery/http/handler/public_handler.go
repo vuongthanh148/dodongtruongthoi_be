@@ -136,6 +136,15 @@ func (h *PublicHandler) ListCampaigns(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, result)
 }
 
+func (h *PublicHandler) ListCustomerPhotos(w http.ResponseWriter, r *http.Request) {
+	result, err := h.platform.ListCustomerPhotos(r.Context(), false)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(w, http.StatusOK, result)
+}
+
 func (h *PublicHandler) ListContacts(w http.ResponseWriter, r *http.Request) {
 	result, err := h.platform.ListContacts(r.Context())
 	if err != nil {

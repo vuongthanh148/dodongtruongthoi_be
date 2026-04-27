@@ -64,6 +64,7 @@ func main() {
 		ContactRepo:      postgres.NewContactLinkRepository(dbPool),
 		AdminUserRepo:    postgres.NewAdminUserRepository(dbPool),
 		SettingsRepo:     postgres.NewSiteSettingsRepository(dbPool),
+		CustomerPhotoRepo: postgres.NewCustomerPhotoRepository(dbPool),
 		ImageUploader:    uploader,
 	})
 	if err != nil {
