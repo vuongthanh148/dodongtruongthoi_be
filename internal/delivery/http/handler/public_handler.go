@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vuongthanh148/dodongtruongthoi_be/internal/domain"
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/usecase"
 	"github.com/vuongthanh148/dodongtruongthoi_be/pkg/response"
 )
@@ -47,7 +48,7 @@ func (h *PublicHandler) ListProducts(w http.ResponseWriter, r *http.Request) {
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 
-	rows, err := h.platform.ListProducts(r.Context(), usecase.ProductQuery{
+	rows, err := h.platform.ListProducts(r.Context(), domain.ProductQuery{
 		Category: r.URL.Query().Get("category"),
 		Sort:     r.URL.Query().Get("sort"),
 		Limit:    limit,
@@ -167,6 +168,7 @@ func (h *PublicHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Phone        string `json:"phone"`
 		CustomerName string `json:"customerName"`
+		Address      string `json:"address"`
 		Note         string `json:"note"`
 		Items        []struct {
 			ProductID       string `json:"productId"`
@@ -206,6 +208,7 @@ func (h *PublicHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	order, err := h.platform.CreateOrder(r.Context(), usecase.CreateOrderRequest{
 		Phone:        body.Phone,
 		CustomerName: ptrIfNotEmpty(body.CustomerName),
+		Address:      ptrIfNotEmpty(body.Address),
 		Note:         ptrIfNotEmpty(body.Note),
 		Items:        items,
 	})

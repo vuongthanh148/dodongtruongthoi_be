@@ -1,0 +1,4 @@
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+
+CREATE TRIGGER trg_reviews_updated_at
+    BEFORE UPDATE ON reviews FOR EACH ROW EXECUTE FUNCTION set_updated_at();

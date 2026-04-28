@@ -80,19 +80,19 @@ func (r *BannerRepository) Update(ctx context.Context, id string, b domain.Banne
 	}
 
 	query := `UPDATE banners SET
-		title = COALESCE(NULLIF($2, ''), title),
-		subtitle = COALESCE(NULLIF($3, ''), subtitle),
-		image_url = COALESCE(NULLIF($4, ''), image_url),
-		link_url = COALESCE(NULLIF($5, ''), link_url),
-		sort_order = $6,
-		is_active = $7,
+		title = COALESCE(NULLIF($1, ''), title),
+		subtitle = COALESCE(NULLIF($2, ''), subtitle),
+		image_url = COALESCE(NULLIF($3, ''), image_url),
+		link_url = COALESCE(NULLIF($4, ''), link_url),
+		sort_order = $5,
+		is_active = $6,
 		updated_at = now()
-	WHERE id = $8
+	WHERE id = $7
 	RETURNING id, title, subtitle, image_url, link_url, sort_order, is_active, created_at, updated_at`
 
 	var result domain.Banner
 	err := r.pool.QueryRow(ctx, query,
-		id, b.Title, b.Subtitle, b.ImageURL, b.LinkURL, b.SortOrder, b.IsActive, id,
+		b.Title, b.Subtitle, b.ImageURL, b.LinkURL, b.SortOrder, b.IsActive, id,
 	).Scan(
 		&result.ID, &result.Title, &result.Subtitle, &result.ImageURL, &result.LinkURL, &result.SortOrder, &result.IsActive, &result.CreatedAt, &result.UpdatedAt,
 	)

@@ -13,7 +13,7 @@ type CategoryRepository interface {
 
 // ProductRepository defines all product data operations including images and sizes
 type ProductRepository interface {
-	List(ctx context.Context, category string, includeInactive bool) ([]Product, error)
+	List(ctx context.Context, q ProductQuery, includeInactive bool) ([]Product, error)
 	Get(ctx context.Context, id string, includeInactive bool) (Product, bool, error)
 	Create(ctx context.Context, p Product) (Product, error)
 	Update(ctx context.Context, id string, p Product) (Product, error)

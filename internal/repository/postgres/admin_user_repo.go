@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -21,8 +22,9 @@ func (r *AdminUserRepository) GetByUsername(ctx context.Context, username string
 	query := "SELECT id, username, password_hash, display_name, is_active, created_at, last_login_at FROM admin_users WHERE username = $1"
 
 	var user domain.AdminUser
+	var lastLogin sql.NullTime
 	err := r.pool.QueryRow(ctx, query, username).Scan(
-		&user.ID, &user.Username, &user.PasswordHash, &user.DisplayName, &user.IsActive, &user.CreatedAt, &user.LastLoginAt,
+		&user.ID, &user.Username, &user.PasswordHash, &user.DisplayName, &user.IsActive, &user.CreatedAt, &lastLogin,
 	)
 
 	if err != nil {
@@ -31,6 +33,11 @@ func (r *AdminUserRepository) GetByUsername(ctx context.Context, username string
 		}
 		return domain.AdminUser{}, false, err
 	}
+
+	if lastLogin.Valid {
+		user.LastLoginAt = &lastLogin.Time
+	}
+
 	return user, true, nil
 }
 
@@ -38,8 +45,9 @@ func (r *AdminUserRepository) Get(ctx context.Context, id string) (domain.AdminU
 	query := "SELECT id, username, password_hash, display_name, is_active, created_at, last_login_at FROM admin_users WHERE id = $1"
 
 	var user domain.AdminUser
+	var lastLogin sql.NullTime
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&user.ID, &user.Username, &user.PasswordHash, &user.DisplayName, &user.IsActive, &user.CreatedAt, &user.LastLoginAt,
+		&user.ID, &user.Username, &user.PasswordHash, &user.DisplayName, &user.IsActive, &user.CreatedAt, &lastLogin,
 	)
 
 	if err != nil {
@@ -48,6 +56,11 @@ func (r *AdminUserRepository) Get(ctx context.Context, id string) (domain.AdminU
 		}
 		return domain.AdminUser{}, false, err
 	}
+
+	if lastLogin.Valid {
+		user.LastLoginAt = &lastLogin.Time
+	}
+
 	return user, true, nil
 }
 
@@ -56,11 +69,16 @@ func (r *AdminUserRepository) Create(ctx context.Context, user domain.AdminUser)
 	VALUES ($1, $2, $3, $4, $5, $6)
 	RETURNING id, username, password_hash, display_name, is_active, created_at, last_login_at`
 
+	var lastLogin sql.NullTime
 	err := r.pool.QueryRow(ctx, query,
 		user.ID, user.Username, user.PasswordHash, user.DisplayName, user.IsActive, user.CreatedAt,
 	).Scan(
-		&user.ID, &user.Username, &user.PasswordHash, &user.DisplayName, &user.IsActive, &user.CreatedAt, &user.LastLoginAt,
+		&user.ID, &user.Username, &user.PasswordHash, &user.DisplayName, &user.IsActive, &user.CreatedAt, &lastLogin,
 	)
+
+	if err == nil && lastLogin.Valid {
+		user.LastLoginAt = &lastLogin.Time
+	}
 
 	return user, err
 }

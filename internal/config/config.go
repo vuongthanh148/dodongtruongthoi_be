@@ -1,9 +1,10 @@
 package config
 
 import (
-"os"
+	"log"
+	"os"
 
-"github.com/joho/godotenv"
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -18,20 +19,25 @@ DatabaseURL          string
 }
 
 func Load() (*Config, error) {
-_ = godotenv.Load()
+	_ = godotenv.Load()
 
-cfg := &Config{
-AppName:              getEnv("APP_NAME", "app"),
-AppEnv:              getEnv("APP_ENV", "development"),
-Port:                getEnv("PORT", "8080"),
-DatabaseURL:         os.Getenv("DATABASE_URL"),
-		JWTSecret:            getEnv("JWT_SECRET", "dev-secret"),
+	jwtSecret := getEnv("JWT_SECRET", "")
+	if jwtSecret == "" || len(jwtSecret) < 32 {
+		log.Fatal("JWT_SECRET must be set and at least 32 characters")
+	}
+
+	cfg := &Config{
+		AppName:              getEnv("APP_NAME", "app"),
+		AppEnv:              getEnv("APP_ENV", "development"),
+		Port:                getEnv("PORT", "8080"),
+		DatabaseURL:         os.Getenv("DATABASE_URL"),
+		JWTSecret:            jwtSecret,
 		CloudinaryCloudName:  os.Getenv("CLOUDINARY_CLOUD_NAME"),
 		CloudinaryAPIKey:     os.Getenv("CLOUDINARY_API_KEY"),
 		CloudinaryAPISecret:  os.Getenv("CLOUDINARY_API_SECRET"),
-}
+	}
 
-return cfg, nil
+	return cfg, nil
 }
 
 func getEnv(key, fallback string) string {

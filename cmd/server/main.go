@@ -74,7 +74,7 @@ func main() {
 
 	publicHandler := handler.NewPublicHandler(platformUsecase)
 	adminHandler := handler.NewAdminHandler(platformUsecase)
-	router := httpdelivery.NewRouter(healthHandler, publicHandler, adminHandler, platformUsecase)
+	router := httpdelivery.NewRouter(cfg, healthHandler, publicHandler, adminHandler, platformUsecase)
 
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,

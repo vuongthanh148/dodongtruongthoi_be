@@ -6,30 +6,47 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/vuongthanh148/dodongtruongthoi_be/internal/config"
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/delivery/http/handler"
 	authmiddleware "github.com/vuongthanh148/dodongtruongthoi_be/internal/delivery/http/middleware"
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/usecase"
 )
 
-func corsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers for all requests
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
-		w.Header().Set("Access-Control-Max-Age", "86400")
+func corsMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			allowedOrigins := []string{"*"}
+			if cfg.AppEnv == "production" {
+				allowedOrigins = []string{"https://dodongtruongthoi.vn"}
+			}
 
-		// Handle preflight OPTIONS requests
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
+			origin := r.Header.Get("Origin")
+			for _, allowed := range allowedOrigins {
+				if allowed == "*" || allowed == origin {
+					w.Header().Set("Access-Control-Allow-Origin", allowed)
+					if allowed != "*" {
+						w.Header().Set("Access-Control-Allow-Origin", origin)
+					}
+					break
+				}
+			}
 
-		next.ServeHTTP(w, r)
-	})
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
+			w.Header().Set("Access-Control-Max-Age", "86400")
+
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 func NewRouter(
+	cfg *config.Config,
 	healthHandler *handler.HealthHandler,
 	publicHandler *handler.PublicHandler,
 	adminHandler *handler.AdminHandler,
@@ -37,7 +54,7 @@ func NewRouter(
 ) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(corsMiddleware)
+	r.Use(corsMiddleware(cfg))
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logger)

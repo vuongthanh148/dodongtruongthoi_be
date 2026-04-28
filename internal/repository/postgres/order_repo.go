@@ -20,7 +20,7 @@ func NewOrderRepository(pool *pgxpool.Pool) *OrderRepository {
 }
 
 func (r *OrderRepository) List(ctx context.Context, phone *string, status *string, limit int, offset int) ([]domain.Order, error) {
-	query := "SELECT id, phone, customer_name, note, status, admin_note, total_amount, created_at, updated_at FROM orders"
+	query := "SELECT id, phone, customer_name, address, note, status, admin_note, total_amount, created_at, updated_at FROM orders"
 
 	args := make([]interface{}, 0)
 	argCount := 1
@@ -58,7 +58,7 @@ func (r *OrderRepository) List(ctx context.Context, phone *string, status *strin
 	for rows.Next() {
 		var ord domain.Order
 		err := rows.Scan(
-			&ord.ID, &ord.Phone, &ord.CustomerName, &ord.Note, &ord.Status, &ord.AdminNote, &ord.TotalAmount, &ord.CreatedAt, &ord.UpdatedAt,
+			&ord.ID, &ord.Phone, &ord.CustomerName, &ord.Address, &ord.Note, &ord.Status, &ord.AdminNote, &ord.TotalAmount, &ord.CreatedAt, &ord.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -69,11 +69,11 @@ func (r *OrderRepository) List(ctx context.Context, phone *string, status *strin
 }
 
 func (r *OrderRepository) Get(ctx context.Context, id string) (domain.Order, bool, error) {
-	query := "SELECT id, phone, customer_name, note, status, admin_note, total_amount, created_at, updated_at FROM orders WHERE id = $1"
+	query := "SELECT id, phone, customer_name, address, note, status, admin_note, total_amount, created_at, updated_at FROM orders WHERE id = $1"
 
 	var ord domain.Order
 	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&ord.ID, &ord.Phone, &ord.CustomerName, &ord.Note, &ord.Status, &ord.AdminNote, &ord.TotalAmount, &ord.CreatedAt, &ord.UpdatedAt,
+		&ord.ID, &ord.Phone, &ord.CustomerName, &ord.Address, &ord.Note, &ord.Status, &ord.AdminNote, &ord.TotalAmount, &ord.CreatedAt, &ord.UpdatedAt,
 	)
 
 	if err != nil {
@@ -94,13 +94,13 @@ func (r *OrderRepository) Create(ctx context.Context, ord domain.Order) (domain.
 		_ = tx.Rollback(ctx)
 	}()
 
-	query := `INSERT INTO orders (id, phone, customer_name, note, status, admin_note, total_amount, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	RETURNING id, phone, customer_name, note, status, admin_note, total_amount, created_at, updated_at`
+	query := `INSERT INTO orders (id, phone, customer_name, address, note, status, admin_note, total_amount, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	RETURNING id, phone, customer_name, address, note, status, admin_note, total_amount, created_at, updated_at`
 
 	err = tx.QueryRow(ctx, query,
-		ord.ID, ord.Phone, ord.CustomerName, ord.Note, ord.Status, ord.AdminNote, ord.TotalAmount, ord.CreatedAt, ord.UpdatedAt,
-	).Scan(&ord.ID, &ord.Phone, &ord.CustomerName, &ord.Note, &ord.Status, &ord.AdminNote, &ord.TotalAmount, &ord.CreatedAt, &ord.UpdatedAt)
+		ord.ID, ord.Phone, ord.CustomerName, ord.Address, ord.Note, ord.Status, ord.AdminNote, ord.TotalAmount, ord.CreatedAt, ord.UpdatedAt,
+	).Scan(&ord.ID, &ord.Phone, &ord.CustomerName, &ord.Address, &ord.Note, &ord.Status, &ord.AdminNote, &ord.TotalAmount, &ord.CreatedAt, &ord.UpdatedAt)
 	if err != nil {
 		return domain.Order{}, err
 	}

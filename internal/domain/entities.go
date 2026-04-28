@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"database/sql"
 	"time"
 )
 
@@ -114,6 +113,7 @@ type Order struct {
 	ID           string      `json:"id"`
 	Phone        string      `json:"phone"`
 	CustomerName *string     `json:"customer_name,omitempty"`
+	Address      *string     `json:"address,omitempty"`
 	Note         *string     `json:"note,omitempty"`
 	Status       string      `json:"status"`
 	AdminNote    *string     `json:"admin_note,omitempty"`
@@ -154,7 +154,7 @@ type AdminUser struct {
 	DisplayName  *string   `json:"display_name,omitempty"`
 	IsActive     bool      `json:"is_active"`
 	CreatedAt    time.Time `json:"created_at"`
-	LastLoginAt  sql.NullTime `json:"last_login_at,omitempty"`
+	LastLoginAt  *time.Time `json:"last_login_at,omitempty"`
 }
 
 type CustomerPhoto struct {

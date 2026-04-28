@@ -18,18 +18,42 @@ func NewProductRepository(pool *pgxpool.Pool) *ProductRepository {
 	return &ProductRepository{pool: pool}
 }
 
-func (r *ProductRepository) List(ctx context.Context, category string, includeInactive bool) ([]domain.Product, error) {
+func (r *ProductRepository) List(ctx context.Context, q domain.ProductQuery, includeInactive bool) ([]domain.Product, error) {
 	query := "SELECT id, title, subtitle, category_id, badge, base_price, description, meaning, default_bg, default_frame, bg_tones, frames, zodiac_ids, purpose_place, purpose_use, purpose_avoid, specs, requires_bg_tone, requires_frame, requires_size, is_active, sort_order, created_at, updated_at FROM products WHERE 1=1"
 
 	args := []interface{}{}
+	argCount := 1
+
 	if !includeInactive {
 		query += " AND is_active = true"
 	}
-	if category != "" {
-		query += " AND category_id = $" + fmt.Sprintf("%d", len(args)+1)
-		args = append(args, category)
+	if q.Category != "" {
+		query += " AND category_id = $" + fmt.Sprintf("%d", argCount)
+		args = append(args, q.Category)
+		argCount++
 	}
-	query += " ORDER BY sort_order, created_at DESC"
+
+	// ORDER BY based on Sort field
+	orderBy := "sort_order, created_at DESC"
+	if q.Sort == "price_asc" {
+		orderBy = "base_price ASC, sort_order"
+	} else if q.Sort == "price_desc" {
+		orderBy = "base_price DESC, sort_order"
+	} else if q.Sort == "newest" {
+		orderBy = "created_at DESC, sort_order"
+	}
+	query += " ORDER BY " + orderBy
+
+	// LIMIT and OFFSET
+	if q.Limit > 0 {
+		query += " LIMIT $" + fmt.Sprintf("%d", argCount)
+		args = append(args, q.Limit)
+		argCount++
+	}
+	if q.Offset > 0 {
+		query += " OFFSET $" + fmt.Sprintf("%d", argCount)
+		args = append(args, q.Offset)
+	}
 
 	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
