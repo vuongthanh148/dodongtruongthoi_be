@@ -15,6 +15,7 @@ type ProductUsecase struct {
 	productRepo      domain.ProductRepository
 	productImageRepo domain.ProductImageRepository
 	productSizeRepo  domain.ProductSizeRepository
+	productSKURepo   domain.ProductSKURepository
 	reviewRepo       domain.ReviewRepository
 	campaignRepo     domain.CampaignRepository
 	categoryRepo     domain.CategoryRepository
@@ -25,6 +26,7 @@ func NewProductUsecase(
 	productRepo domain.ProductRepository,
 	productImageRepo domain.ProductImageRepository,
 	productSizeRepo domain.ProductSizeRepository,
+	productSKURepo domain.ProductSKURepository,
 	reviewRepo domain.ReviewRepository,
 	campaignRepo domain.CampaignRepository,
 	categoryRepo domain.CategoryRepository,
@@ -34,6 +36,7 @@ func NewProductUsecase(
 		productRepo:      productRepo,
 		productImageRepo: productImageRepo,
 		productSizeRepo:  productSizeRepo,
+		productSKURepo:   productSKURepo,
 		reviewRepo:       reviewRepo,
 		campaignRepo:     campaignRepo,
 		categoryRepo:     categoryRepo,
@@ -200,18 +203,6 @@ func (u *ProductUsecase) UpdateProduct(ctx context.Context, id string, updates d
 	if updates.Meaning != nil && *updates.Meaning != "" {
 		existing.Meaning = updates.Meaning
 	}
-	if updates.DefaultBG != "" {
-		existing.DefaultBG = updates.DefaultBG
-	}
-	if updates.DefaultFrame != "" {
-		existing.DefaultFrame = updates.DefaultFrame
-	}
-	if len(updates.BGTones) > 0 {
-		existing.BGTones = updates.BGTones
-	}
-	if len(updates.Frames) > 0 {
-		existing.Frames = updates.Frames
-	}
 	if len(updates.ZodiacIDs) > 0 {
 		existing.ZodiacIDs = updates.ZodiacIDs
 	}
@@ -227,8 +218,12 @@ func (u *ProductUsecase) UpdateProduct(ctx context.Context, id string, updates d
 	if updates.Specs != nil && len(updates.Specs) > 0 {
 		existing.Specs = updates.Specs
 	}
-	existing.RequiresBGTone = updates.RequiresBGTone
-	existing.RequiresFrame = updates.RequiresFrame
+	if len(updates.VariantOptions) > 0 {
+		existing.VariantOptions = updates.VariantOptions
+	}
+	if len(updates.DefaultVariant) > 0 {
+		existing.DefaultVariant = updates.DefaultVariant
+	}
 	existing.RequiresSize = updates.RequiresSize
 	existing.IsActive = updates.IsActive
 	existing.SortOrder = updates.SortOrder
@@ -284,8 +279,12 @@ func (u *ProductUsecase) SetProductSizes(ctx context.Context, productID string, 
 	return result, nil
 }
 
-func (u *ProductUsecase) AddProductImage(ctx context.Context, productID string, bgTone, frame *string, url, altText string) (domain.ProductImage, error) {
-	// Verify product exists
+func (u *ProductUsecase) ListProductImages(ctx context.Context, productID string) ([]domain.ProductImage, error) {
+	return u.productImageRepo.ListByProduct(ctx, productID)
+}
+
+// AttachImage attaches an existing library image to a product with optional variant attrs.
+func (u *ProductUsecase) AttachImage(ctx context.Context, productID string, imageID string, attrs []domain.VariantAttr) (domain.ProductImage, error) {
 	_, ok, err := u.productRepo.Get(ctx, productID, true)
 	if err != nil {
 		return domain.ProductImage{}, err
@@ -294,111 +293,37 @@ func (u *ProductUsecase) AddProductImage(ctx context.Context, productID string, 
 		return domain.ProductImage{}, errors.New("product not found")
 	}
 
-	// Get current images to determine sort order
-	images, err := u.productImageRepo.ListByProduct(ctx, productID)
+	existing, err := u.productImageRepo.ListByProduct(ctx, productID)
 	if err != nil {
 		return domain.ProductImage{}, err
 	}
 
-	alt := altText
 	img := domain.ProductImage{
-		ID:        fmt.Sprintf("%s-img-%d", productID, len(images)+1),
+		ID:        fmt.Sprintf("%s-pi-%d", productID, len(existing)+1),
 		ProductID: productID,
-		BGTone:    bgTone,
-		Frame:     frame,
-		URL:       url,
-		AltText:   &alt,
-		SortOrder: len(images),
+		ImageID:   imageID,
+		SortOrder: len(existing),
+		Attrs:     attrs,
 		CreatedAt: time.Now(),
 	}
-
-	return u.productImageRepo.Create(ctx, img)
+	return u.productImageRepo.Attach(ctx, img)
 }
 
-// UploadProductImage uploads a file to Cloudinary and saves image metadata to database
-func (u *ProductUsecase) UploadProductImage(ctx context.Context, productID string, file interface{}, filename string, bgTone *string, frame *string) (domain.ProductImage, error) {
-	if u.imageUploader == nil {
-		return domain.ProductImage{}, errors.New("image uploads disabled; cloudinary not configured")
-	}
-
-	// Verify product exists
-	_, ok, err := u.productRepo.Get(ctx, productID, true)
-	if err != nil {
-		return domain.ProductImage{}, fmt.Errorf("failed to get product: %w", err)
-	}
-	if !ok {
-		return domain.ProductImage{}, errors.New("product not found")
-	}
-
-	// Upload to Cloudinary
-	url, err := u.imageUploader.UploadImage(ctx, file, filename, "products")
-	if err != nil {
-		return domain.ProductImage{}, fmt.Errorf("cloudinary upload failed: %w", err)
-	}
-
-	// Get current images to determine sort order
-	images, err := u.productImageRepo.ListByProduct(ctx, productID)
-	if err != nil {
-		return domain.ProductImage{}, fmt.Errorf("failed to list images: %w", err)
-	}
-
-	// Create image record in database
-	alt := filename
-	img := domain.ProductImage{
-		ProductID: productID,
-		BGTone:    bgTone,
-		Frame:     frame,
-		URL:       url,
-		AltText:   &alt,
-		SortOrder: len(images),
-		CreatedAt: time.Now(),
-	}
-
-	result, err := u.productImageRepo.Create(ctx, img)
-	if err != nil {
-		return domain.ProductImage{}, fmt.Errorf("failed to create image record: %w", err)
-	}
-
-	return result, nil
+// SetProductImageAttrs replaces all variant attrs on a product_image.
+func (u *ProductUsecase) SetProductImageAttrs(ctx context.Context, productImageID string, attrs []domain.VariantAttr) error {
+	return u.productImageRepo.SetAttrs(ctx, productImageID, attrs)
 }
 
-func (u *ProductUsecase) DeleteProductImage(ctx context.Context, productID, imageID string) error {
-	// Verify product exists
-	_, ok, err := u.productRepo.Get(ctx, productID, true)
+// DetachProductImage removes the product→image link (does not delete from library).
+func (u *ProductUsecase) DetachProductImage(ctx context.Context, productID, productImageID string) error {
+	img, ok, err := u.productImageRepo.Get(ctx, productImageID)
 	if err != nil {
 		return err
 	}
-	if !ok {
-		return errors.New("product not found")
+	if !ok || img.ProductID != productID {
+		return errors.New("product image not found")
 	}
-
-	// Verify image exists and belongs to product
-	img, ok, err := u.productImageRepo.Get(ctx, imageID)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return errors.New("image not found")
-	}
-	if img.ProductID != productID {
-		return errors.New("image not found")
-	}
-
-	// Delete from Cloudinary if uploader configured
-	if u.imageUploader != nil {
-		// Extract public_id from Cloudinary URL
-		parts := split(img.URL, "/upload/")
-		if len(parts) == 2 {
-			publicID := parts[1]
-			if idx := firstIndex(publicID, "/"); idx > 0 {
-				publicID = publicID[idx+1:]
-			}
-			// Attempt deletion but don't fail if it errors
-			_ = u.imageUploader.DeleteImage(ctx, publicID)
-		}
-	}
-
-	return u.productImageRepo.Delete(ctx, imageID)
+	return u.productImageRepo.Detach(ctx, productImageID)
 }
 
 func (u *ProductUsecase) buildProductPublic(ctx context.Context, p domain.Product) (ProductPublic, error) {
@@ -427,9 +352,29 @@ func (u *ProductUsecase) buildProductPublic(ctx context.Context, p domain.Produc
 	if err != nil {
 		return ProductPublic{}, err
 	}
-	// Ensure images is never nil for JSON marshaling
 	if images == nil {
 		images = []domain.ProductImage{}
+	}
+
+	// Get SKUs for this product
+	skus, err := u.productSKURepo.ListByProduct(ctx, p.ID)
+	if err != nil {
+		return ProductPublic{}, err
+	}
+	if skus == nil {
+		skus = []domain.ProductSKU{}
+	}
+
+	// Override price with min SKU price when SKUs exist
+	if len(skus) > 0 {
+		minPrice := skus[0].Price
+		for _, s := range skus[1:] {
+			if s.Price < minPrice {
+				minPrice = s.Price
+			}
+		}
+		price = minPrice
+		discountPrice = nil
 	}
 
 	rating, count := aggregateRating(reviews)
@@ -438,10 +383,19 @@ func (u *ProductUsecase) buildProductPublic(ctx context.Context, p domain.Produc
 		Price:         price,
 		DiscountPrice: discountPrice,
 		Sizes:         sizes,
+		SKUs:          skus,
 		Images:        images,
 		Rating:        rating,
 		ReviewCount:   count,
 	}, nil
+}
+
+func (u *ProductUsecase) GetSKUs(ctx context.Context, productID string) ([]domain.ProductSKU, error) {
+	return u.productSKURepo.ListByProduct(ctx, productID)
+}
+
+func (u *ProductUsecase) SetSKUs(ctx context.Context, productID string, skus []domain.ProductSKU) error {
+	return u.productSKURepo.SetByProduct(ctx, productID, skus)
 }
 
 func (u *ProductUsecase) calculateDiscountPrice(ctx context.Context, productID string, basePrice int64) (int64, bool, error) {

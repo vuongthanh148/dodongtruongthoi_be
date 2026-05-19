@@ -2,9 +2,11 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/domain"
@@ -18,9 +20,42 @@ func NewProductRepository(pool *pgxpool.Pool) *ProductRepository {
 	return &ProductRepository{pool: pool}
 }
 
-func (r *ProductRepository) List(ctx context.Context, q domain.ProductQuery, includeInactive bool) ([]domain.Product, error) {
-	query := "SELECT id, title, subtitle, category_id, badge, base_price, description, meaning, default_bg, default_frame, bg_tones, frames, zodiac_ids, purpose_place, purpose_use, purpose_avoid, specs, requires_bg_tone, requires_frame, requires_size, is_active, sort_order, created_at, updated_at FROM products WHERE 1=1"
+const productColumns = `
+	id, title, subtitle, category_id, badge, base_price, description, meaning,
+	variant_options, default_variant, zodiac_ids, purpose_place, purpose_use,
+	purpose_avoid, specs, requires_size, is_active, sort_order, created_at, updated_at`
 
+func scanProduct(row pgx.Row) (domain.Product, error) {
+	var p domain.Product
+	var variantOptionsRaw []byte
+	var defaultVariantRaw []byte
+	err := row.Scan(
+		&p.ID, &p.Title, &p.Subtitle, &p.CategoryID, &p.Badge, &p.BasePrice,
+		&p.Description, &p.Meaning,
+		&variantOptionsRaw, &defaultVariantRaw,
+		&p.ZodiacIDs, &p.PurposePlace, &p.PurposeUse, &p.PurposeAvoid,
+		&p.Specs, &p.RequiresSize, &p.IsActive, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt,
+	)
+	if err != nil {
+		return domain.Product{}, err
+	}
+	if len(variantOptionsRaw) > 0 {
+		_ = json.Unmarshal(variantOptionsRaw, &p.VariantOptions)
+	}
+	if len(defaultVariantRaw) > 0 {
+		_ = json.Unmarshal(defaultVariantRaw, &p.DefaultVariant)
+	}
+	if p.VariantOptions == nil {
+		p.VariantOptions = []domain.VariantOption{}
+	}
+	if p.DefaultVariant == nil {
+		p.DefaultVariant = map[string]string{}
+	}
+	return p, nil
+}
+
+func (r *ProductRepository) List(ctx context.Context, q domain.ProductQuery, includeInactive bool) ([]domain.Product, error) {
+	query := "SELECT " + productColumns + " FROM products WHERE 1=1"
 	args := []interface{}{}
 	argCount := 1
 
@@ -28,30 +63,29 @@ func (r *ProductRepository) List(ctx context.Context, q domain.ProductQuery, inc
 		query += " AND is_active = true"
 	}
 	if q.Category != "" {
-		query += " AND category_id = $" + fmt.Sprintf("%d", argCount)
+		query += fmt.Sprintf(" AND category_id = $%d", argCount)
 		args = append(args, q.Category)
 		argCount++
 	}
 
-	// ORDER BY based on Sort field
 	orderBy := "sort_order, created_at DESC"
-	if q.Sort == "price_asc" {
+	switch q.Sort {
+	case "price_asc":
 		orderBy = "base_price ASC, sort_order"
-	} else if q.Sort == "price_desc" {
+	case "price_desc":
 		orderBy = "base_price DESC, sort_order"
-	} else if q.Sort == "newest" {
+	case "newest":
 		orderBy = "created_at DESC, sort_order"
 	}
 	query += " ORDER BY " + orderBy
 
-	// LIMIT and OFFSET
 	if q.Limit > 0 {
-		query += " LIMIT $" + fmt.Sprintf("%d", argCount)
+		query += fmt.Sprintf(" LIMIT $%d", argCount)
 		args = append(args, q.Limit)
 		argCount++
 	}
 	if q.Offset > 0 {
-		query += " OFFSET $" + fmt.Sprintf("%d", argCount)
+		query += fmt.Sprintf(" OFFSET $%d", argCount)
 		args = append(args, q.Offset)
 	}
 
@@ -63,67 +97,49 @@ func (r *ProductRepository) List(ctx context.Context, q domain.ProductQuery, inc
 
 	var products []domain.Product
 	for rows.Next() {
-		var p domain.Product
-		var specs map[string]string
-		err := rows.Scan(
-			&p.ID, &p.Title, &p.Subtitle, &p.CategoryID, &p.Badge, &p.BasePrice,
-			&p.Description, &p.Meaning, &p.DefaultBG, &p.DefaultFrame,
-			&p.BGTones, &p.Frames, &p.ZodiacIDs,
-			&p.PurposePlace, &p.PurposeUse, &p.PurposeAvoid,
-			&specs, &p.RequiresBGTone, &p.RequiresFrame, &p.RequiresSize,
-			&p.IsActive, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt,
-		)
+		p, err := scanProduct(rows)
 		if err != nil {
 			return nil, err
 		}
-		p.Specs = specs
 		products = append(products, p)
 	}
 	return products, rows.Err()
 }
 
 func (r *ProductRepository) Get(ctx context.Context, id string, includeInactive bool) (domain.Product, bool, error) {
-	query := "SELECT id, title, subtitle, category_id, badge, base_price, description, meaning, default_bg, default_frame, bg_tones, frames, zodiac_ids, purpose_place, purpose_use, purpose_avoid, specs, requires_bg_tone, requires_frame, requires_size, is_active, sort_order, created_at, updated_at FROM products WHERE id = $1"
-
+	query := "SELECT " + productColumns + " FROM products WHERE id = $1"
 	if !includeInactive {
 		query += " AND is_active = true"
 	}
 
-	var p domain.Product
-	var specs map[string]string
-	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&p.ID, &p.Title, &p.Subtitle, &p.CategoryID, &p.Badge, &p.BasePrice,
-		&p.Description, &p.Meaning, &p.DefaultBG, &p.DefaultFrame,
-		&p.BGTones, &p.Frames, &p.ZodiacIDs,
-		&p.PurposePlace, &p.PurposeUse, &p.PurposeAvoid,
-		&specs, &p.RequiresBGTone, &p.RequiresFrame, &p.RequiresSize,
-		&p.IsActive, &p.SortOrder, &p.CreatedAt, &p.UpdatedAt,
-	)
-	if err == nil {
-		p.Specs = specs
+	p, err := scanProduct(r.pool.QueryRow(ctx, query, id))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Product{}, false, nil
 	}
-
 	if err != nil {
-		if err.Error() == "no rows in result set" {
-			return domain.Product{}, false, nil
-		}
 		return domain.Product{}, false, err
 	}
 	return p, true, nil
 }
 
 func (r *ProductRepository) Create(ctx context.Context, p domain.Product) (domain.Product, error) {
-	query := `INSERT INTO products (id, title, subtitle, category_id, badge, base_price, description, meaning, default_bg, default_frame, bg_tones, frames, zodiac_ids, purpose_place, purpose_use, purpose_avoid, specs, requires_bg_tone, requires_frame, requires_size, is_active, sort_order, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
-	RETURNING created_at, updated_at`
+	variantOptionsJSON, _ := json.Marshal(p.VariantOptions)
+	defaultVariantJSON, _ := json.Marshal(p.DefaultVariant)
+
+	query := `INSERT INTO products (
+		id, title, subtitle, category_id, badge, base_price, description, meaning,
+		variant_options, default_variant, zodiac_ids, purpose_place, purpose_use,
+		purpose_avoid, specs, requires_size, is_active, sort_order, created_at, updated_at
+	) VALUES (
+		$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20
+	) RETURNING created_at, updated_at`
 
 	err := r.pool.QueryRow(ctx, query,
 		p.ID, p.Title, p.Subtitle, p.CategoryID, p.Badge, p.BasePrice,
-		p.Description, p.Meaning, p.DefaultBG, p.DefaultFrame,
-		p.BGTones, p.Frames, p.ZodiacIDs,
-		p.PurposePlace, p.PurposeUse, p.PurposeAvoid,
-		p.Specs, p.RequiresBGTone, p.RequiresFrame, p.RequiresSize,
-		p.IsActive, p.SortOrder, p.CreatedAt, p.UpdatedAt,
+		p.Description, p.Meaning,
+		variantOptionsJSON, defaultVariantJSON,
+		p.ZodiacIDs, p.PurposePlace, p.PurposeUse, p.PurposeAvoid,
+		p.Specs, p.RequiresSize, p.IsActive, p.SortOrder, p.CreatedAt, p.UpdatedAt,
 	).Scan(&p.CreatedAt, &p.UpdatedAt)
 
 	return p, err
@@ -134,49 +150,41 @@ func (r *ProductRepository) Update(ctx context.Context, id string, p domain.Prod
 		return domain.Product{}, errors.New("product id is required")
 	}
 
+	variantOptionsJSON, _ := json.Marshal(p.VariantOptions)
+	defaultVariantJSON, _ := json.Marshal(p.DefaultVariant)
+
 	query := `UPDATE products SET
-		title = COALESCE(NULLIF($2, ''), title),
-		subtitle = COALESCE(NULLIF($3, ''), subtitle),
-		category_id = COALESCE(NULLIF($4, ''), category_id),
-		badge = COALESCE(NULLIF($5, ''), badge),
-		base_price = CASE WHEN $6 > 0 THEN $6 ELSE base_price END,
-		description = COALESCE(NULLIF($7, ''), description),
-		meaning = COALESCE(NULLIF($8, ''), meaning),
-		default_bg = COALESCE(NULLIF($9, ''), default_bg),
-		default_frame = COALESCE(NULLIF($10, ''), default_frame),
-		bg_tones = CASE WHEN array_length($11::text[], 1) > 0 THEN $11 ELSE bg_tones END,
-		frames = CASE WHEN array_length($12::text[], 1) > 0 THEN $12 ELSE frames END,
-		zodiac_ids = CASE WHEN array_length($13::text[], 1) > 0 THEN $13 ELSE zodiac_ids END,
-		purpose_place = CASE WHEN array_length($14::text[], 1) > 0 THEN $14 ELSE purpose_place END,
-		purpose_use = CASE WHEN array_length($15::text[], 1) > 0 THEN $15 ELSE purpose_use END,
-		purpose_avoid = CASE WHEN array_length($16::text[], 1) > 0 THEN $16 ELSE purpose_avoid END,
-		specs = COALESCE(NULLIF($17::jsonb, '{}'), specs),
-		requires_bg_tone = $18,
-		requires_frame = $19,
-		requires_size = $20,
-		is_active = $21,
-		sort_order = $22,
-		updated_at = now()
-	WHERE id = $23
-	RETURNING id, title, subtitle, category_id, badge, base_price, description, meaning, default_bg, default_frame, bg_tones, frames, zodiac_ids, purpose_place, purpose_use, purpose_avoid, specs, requires_bg_tone, requires_frame, requires_size, is_active, sort_order, created_at, updated_at`
+		title          = COALESCE(NULLIF($2, ''), title),
+		subtitle       = $3,
+		category_id    = COALESCE(NULLIF($4, ''), category_id),
+		badge          = $5,
+		base_price     = CASE WHEN $6 > 0 THEN $6 ELSE base_price END,
+		description    = $7,
+		meaning        = $8,
+		variant_options = $9,
+		default_variant = $10,
+		zodiac_ids     = CASE WHEN array_length($11::text[], 1) > 0 THEN $11 ELSE zodiac_ids END,
+		purpose_place  = $12,
+		purpose_use    = $13,
+		purpose_avoid  = $14,
+		specs          = COALESCE(NULLIF($15::jsonb, '{}'), specs),
+		requires_size  = $16,
+		is_active      = $17,
+		sort_order     = $18,
+		updated_at     = now()
+	WHERE id = $1
+	RETURNING ` + productColumns
 
-	var result domain.Product
-	err := r.pool.QueryRow(ctx, query,
+	result, err := scanProduct(r.pool.QueryRow(ctx, query,
 		id, p.Title, p.Subtitle, p.CategoryID, p.Badge, p.BasePrice,
-		p.Description, p.Meaning, p.DefaultBG, p.DefaultFrame,
-		p.BGTones, p.Frames, p.ZodiacIDs,
-		p.PurposePlace, p.PurposeUse, p.PurposeAvoid,
-		p.Specs, p.RequiresBGTone, p.RequiresFrame, p.RequiresSize,
-		p.IsActive, p.SortOrder, id,
-	).Scan(
-		&result.ID, &result.Title, &result.Subtitle, &result.CategoryID, &result.Badge, &result.BasePrice,
-		&result.Description, &result.Meaning, &result.DefaultBG, &result.DefaultFrame,
-		&result.BGTones, &result.Frames, &result.ZodiacIDs,
-		&result.PurposePlace, &result.PurposeUse, &result.PurposeAvoid,
-		&result.Specs, &result.RequiresBGTone, &result.RequiresFrame, &result.RequiresSize,
-		&result.IsActive, &result.SortOrder, &result.CreatedAt, &result.UpdatedAt,
-	)
-
+		p.Description, p.Meaning,
+		variantOptionsJSON, defaultVariantJSON,
+		p.ZodiacIDs, p.PurposePlace, p.PurposeUse, p.PurposeAvoid,
+		p.Specs, p.RequiresSize, p.IsActive, p.SortOrder,
+	))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Product{}, errors.New("product not found")
+	}
 	return result, err
 }
 

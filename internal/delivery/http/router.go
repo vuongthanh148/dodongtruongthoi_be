@@ -98,9 +98,20 @@ func NewRouter(
 				r.Post("/products", adminHandler.CreateProduct)
 				r.Put("/products/{id}", adminHandler.UpdateProduct)
 				r.Delete("/products/{id}", adminHandler.DeleteProduct)
-				r.Post("/products/{id}/images", adminHandler.UploadProductImages)
-				r.Delete("/products/{id}/images/{imgId}", adminHandler.DeleteProductImage)
+				// Image library
+				r.Get("/images", adminHandler.ListImages)
+				r.Post("/images", adminHandler.UploadImage)
+				r.Put("/images/{id}", adminHandler.RenameImage)
+				r.Delete("/images/{id}", adminHandler.DeleteImage)
+
+				// Product images (join table)
+				r.Get("/products/{id}/images", adminHandler.ListProductImages)
+				r.Post("/products/{id}/images/attach", adminHandler.AttachProductImage)
+				r.Put("/products/{id}/images/{imgId}/attrs", adminHandler.SetProductImageAttrs)
+				r.Delete("/products/{id}/images/{imgId}", adminHandler.DetachProductImage)
 				r.Put("/products/{id}/sizes", adminHandler.SetProductSizes)
+				r.Get("/products/{id}/skus", adminHandler.GetProductSKUs)
+				r.Put("/products/{id}/skus", adminHandler.SetProductSKUs)
 
 				r.Get("/categories", adminHandler.ListCategories)
 				r.Post("/categories", adminHandler.CreateCategory)

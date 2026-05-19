@@ -56,6 +56,8 @@ func main() {
 		ProductRepo:      postgres.NewProductRepository(dbPool),
 		ProductImageRepo: postgres.NewProductImageRepository(dbPool),
 		ProductSizeRepo:  postgres.NewProductSizeRepository(dbPool),
+		ProductSKURepo:   postgres.NewProductSKURepository(dbPool),
+		ImageRepo:        postgres.NewImageRepository(dbPool),
 		CampaignRepo:     postgres.NewCampaignRepository(dbPool),
 		ReviewRepo:       postgres.NewReviewRepository(dbPool),
 		OrderRepo:        postgres.NewOrderRepository(dbPool),

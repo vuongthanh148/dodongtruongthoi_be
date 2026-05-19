@@ -48,26 +48,22 @@ func (h *AdminHandler) GetProduct(w http.ResponseWriter, r *http.Request) {
 
 func (h *AdminHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		ID             string            `json:"id"`
-		Title          string            `json:"title"`
-		Subtitle       string            `json:"subtitle"`
-		CategoryID     string            `json:"category_id"`
-		Badge          string            `json:"badge"`
-		BasePrice      int64             `json:"base_price"`
-		Description    string            `json:"description"`
-		Meaning        string            `json:"meaning"`
-		DefaultBG      string            `json:"default_bg"`
-		DefaultFrame   string            `json:"default_frame"`
-		BGTones        []string          `json:"bg_tones"`
-		Frames         []string          `json:"frames"`
-		ZodiacIDs      []string          `json:"zodiac_ids"`
-		PurposePlace   []string          `json:"purpose_place"`
-		PurposeUse     []string          `json:"purpose_use"`
-		PurposeAvoid   []string          `json:"purpose_avoid"`
-		Specs          map[string]string `json:"specs"`
-		RequiresBGTone bool              `json:"requires_bg_tone"`
-		RequiresFrame  bool              `json:"requires_frame"`
-		RequiresSize   bool              `json:"requires_size"`
+		ID             string                  `json:"id"`
+		Title          string                  `json:"title"`
+		Subtitle       string                  `json:"subtitle"`
+		CategoryID     string                  `json:"category_id"`
+		Badge          string                  `json:"badge"`
+		BasePrice      int64                   `json:"base_price"`
+		Description    string                  `json:"description"`
+		Meaning        string                  `json:"meaning"`
+		VariantOptions []domain.VariantOption  `json:"variant_options"`
+		DefaultVariant map[string]string       `json:"default_variant"`
+		ZodiacIDs      []string                `json:"zodiac_ids"`
+		PurposePlace   []string                `json:"purpose_place"`
+		PurposeUse     []string                `json:"purpose_use"`
+		PurposeAvoid   []string                `json:"purpose_avoid"`
+		Specs          map[string]string       `json:"specs"`
+		RequiresSize   bool                    `json:"requires_size"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid body")
@@ -87,17 +83,13 @@ func (h *AdminHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
 		BasePrice:      body.BasePrice,
 		Description:    ptrIfNotEmpty(body.Description),
 		Meaning:        ptrIfNotEmpty(body.Meaning),
-		DefaultBG:      body.DefaultBG,
-		DefaultFrame:   body.DefaultFrame,
-		BGTones:        body.BGTones,
-		Frames:         body.Frames,
+		VariantOptions: body.VariantOptions,
+		DefaultVariant: body.DefaultVariant,
 		ZodiacIDs:      body.ZodiacIDs,
 		PurposePlace:   body.PurposePlace,
 		PurposeUse:     body.PurposeUse,
 		PurposeAvoid:   body.PurposeAvoid,
 		Specs:          body.Specs,
-		RequiresBGTone: body.RequiresBGTone,
-		RequiresFrame:  body.RequiresFrame,
 		RequiresSize:   body.RequiresSize,
 	}
 
@@ -117,27 +109,23 @@ func (h *AdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		Title          string            `json:"title"`
-		Subtitle       string            `json:"subtitle"`
-		CategoryID     string            `json:"category_id"`
-		Badge          string            `json:"badge"`
-		BasePrice      int64             `json:"base_price"`
-		Description    string            `json:"description"`
-		Meaning        string            `json:"meaning"`
-		DefaultBG      string            `json:"default_bg"`
-		DefaultFrame   string            `json:"default_frame"`
-		BGTones        []string          `json:"bg_tones"`
-		Frames         []string          `json:"frames"`
-		ZodiacIDs      []string          `json:"zodiac_ids"`
-		PurposePlace   []string          `json:"purpose_place"`
-		PurposeUse     []string          `json:"purpose_use"`
-		PurposeAvoid   []string          `json:"purpose_avoid"`
-		Specs          map[string]string `json:"specs"`
-		RequiresBGTone bool              `json:"requires_bg_tone"`
-		RequiresFrame  bool              `json:"requires_frame"`
-		RequiresSize   bool              `json:"requires_size"`
-		IsActive       bool              `json:"is_active"`
-		SortOrder      int               `json:"sort_order"`
+		Title          string                  `json:"title"`
+		Subtitle       string                  `json:"subtitle"`
+		CategoryID     string                  `json:"category_id"`
+		Badge          string                  `json:"badge"`
+		BasePrice      int64                   `json:"base_price"`
+		Description    string                  `json:"description"`
+		Meaning        string                  `json:"meaning"`
+		VariantOptions []domain.VariantOption  `json:"variant_options"`
+		DefaultVariant map[string]string       `json:"default_variant"`
+		ZodiacIDs      []string                `json:"zodiac_ids"`
+		PurposePlace   []string                `json:"purpose_place"`
+		PurposeUse     []string                `json:"purpose_use"`
+		PurposeAvoid   []string                `json:"purpose_avoid"`
+		Specs          map[string]string       `json:"specs"`
+		RequiresSize   bool                    `json:"requires_size"`
+		IsActive       bool                    `json:"is_active"`
+		SortOrder      int                     `json:"sort_order"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid body")
@@ -152,17 +140,13 @@ func (h *AdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		BasePrice:      body.BasePrice,
 		Description:    ptrIfNotEmpty(body.Description),
 		Meaning:        ptrIfNotEmpty(body.Meaning),
-		DefaultBG:      body.DefaultBG,
-		DefaultFrame:   body.DefaultFrame,
-		BGTones:        body.BGTones,
-		Frames:         body.Frames,
+		VariantOptions: body.VariantOptions,
+		DefaultVariant: body.DefaultVariant,
 		ZodiacIDs:      body.ZodiacIDs,
 		PurposePlace:   body.PurposePlace,
 		PurposeUse:     body.PurposeUse,
 		PurposeAvoid:   body.PurposeAvoid,
 		Specs:          body.Specs,
-		RequiresBGTone: body.RequiresBGTone,
-		RequiresFrame:  body.RequiresFrame,
 		RequiresSize:   body.RequiresSize,
 		IsActive:       body.IsActive,
 		SortOrder:      body.SortOrder,
@@ -191,56 +175,81 @@ func (h *AdminHandler) DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, http.StatusOK, map[string]string{"message": "product deleted"})
 }
 
-func (h *AdminHandler) UploadProductImages(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) ListProductImages(w http.ResponseWriter, r *http.Request) {
 	productID := chi.URLParam(r, "id")
 	if productID == "" {
 		response.Error(w, http.StatusBadRequest, "product id is required")
 		return
 	}
-
-	// Parse multipart form data (32MB max)
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		response.Error(w, http.StatusBadRequest, "failed to parse form: "+err.Error())
-		return
-	}
-
-	// Get file from form
-	file, header, err := r.FormFile("file")
+	images, err := h.platform.ListProductImages(r.Context(), productID)
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "file parameter required")
+		response.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	defer file.Close()
+	response.Success(w, http.StatusOK, images)
+}
 
-	// Get optional parameters
-	bgTone := r.FormValue("bgTone")
-	frame := r.FormValue("frame")
-
-	// Upload to Cloudinary and save to database
-	img, err := h.platform.UploadProductImage(r.Context(), productID, file, header.Filename,
-		ptrIfNotEmpty(bgTone), ptrIfNotEmpty(frame))
+// AttachProductImage attaches an existing library image to a product with variant attrs.
+func (h *AdminHandler) AttachProductImage(w http.ResponseWriter, r *http.Request) {
+	productID := chi.URLParam(r, "id")
+	if productID == "" {
+		response.Error(w, http.StatusBadRequest, "product id is required")
+		return
+	}
+	var body struct {
+		ImageID string              `json:"image_id"`
+		Attrs   []domain.VariantAttr `json:"attrs"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	if body.ImageID == "" {
+		response.Error(w, http.StatusBadRequest, "image_id is required")
+		return
+	}
+	img, err := h.platform.AttachImage(r.Context(), productID, body.ImageID, body.Attrs)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "upload failed: "+err.Error())
+		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
 	response.Success(w, http.StatusCreated, img)
 }
 
-func (h *AdminHandler) DeleteProductImage(w http.ResponseWriter, r *http.Request) {
+// SetProductImageAttrs replaces all variant attrs on a product_image.
+func (h *AdminHandler) SetProductImageAttrs(w http.ResponseWriter, r *http.Request) {
+	productImageID := chi.URLParam(r, "imgId")
+	if productImageID == "" {
+		response.Error(w, http.StatusBadRequest, "imgId is required")
+		return
+	}
+	var body struct {
+		Attrs []domain.VariantAttr `json:"attrs"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	if err := h.platform.SetProductImageAttrs(r.Context(), productImageID, body.Attrs); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(w, http.StatusOK, map[string]string{"message": "attrs updated"})
+}
+
+// DetachProductImage removes the product→image link.
+func (h *AdminHandler) DetachProductImage(w http.ResponseWriter, r *http.Request) {
 	productID := chi.URLParam(r, "id")
 	imageID := chi.URLParam(r, "imgId")
 	if productID == "" || imageID == "" {
 		response.Error(w, http.StatusBadRequest, "product id and image id are required")
 		return
 	}
-
-	err := h.platform.DeleteProductImage(r.Context(), productID, imageID)
-	if err != nil {
+	if err := h.platform.DetachProductImage(r.Context(), productID, imageID); err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	response.Success(w, http.StatusOK, map[string]string{"message": "image deleted"})
+	response.Success(w, http.StatusOK, map[string]string{"message": "image detached"})
 }
 
 func (h *AdminHandler) SetProductSizes(w http.ResponseWriter, r *http.Request) {
@@ -264,4 +273,40 @@ func (h *AdminHandler) SetProductSizes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.Success(w, http.StatusOK, result)
+}
+
+func (h *AdminHandler) GetProductSKUs(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "product id is required")
+		return
+	}
+	skus, err := h.platform.GetSKUs(r.Context(), id)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(w, http.StatusOK, skus)
+}
+
+func (h *AdminHandler) SetProductSKUs(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "product id is required")
+		return
+	}
+
+	var body struct {
+		SKUs []domain.ProductSKU `json:"skus"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+
+	if err := h.platform.SetSKUs(r.Context(), id, body.SKUs); err != nil {
+		response.Error(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	response.Success(w, http.StatusOK, nil)
 }

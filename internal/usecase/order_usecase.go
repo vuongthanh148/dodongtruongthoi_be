@@ -49,20 +49,6 @@ func (u *OrderUsecase) CreateOrder(ctx context.Context, req CreateOrderRequest) 
 		if !ok || !product.IsActive {
 			return domain.Order{}, fmt.Errorf("invalid product: %s", in.ProductID)
 		}
-		bgTone := ""
-		if in.BGTone != nil {
-			bgTone = strings.TrimSpace(*in.BGTone)
-		}
-		if product.RequiresBGTone && bgTone == "" {
-			return domain.Order{}, fmt.Errorf("bg_tone is required for product: %s", in.ProductID)
-		}
-		frame := ""
-		if in.Frame != nil {
-			frame = strings.TrimSpace(*in.Frame)
-		}
-		if product.RequiresFrame && frame == "" {
-			return domain.Order{}, fmt.Errorf("frame is required for product: %s", in.ProductID)
-		}
 		sizeCode := ""
 		if in.SizeCode != nil {
 			sizeCode = strings.TrimSpace(*in.SizeCode)
@@ -90,10 +76,7 @@ func (u *OrderUsecase) CreateOrder(ctx context.Context, req CreateOrderRequest) 
 			ProductSubtitle: product.Subtitle,
 			SizeCode:        in.SizeCode,
 			SizeLabel:       in.SizeLabel,
-			BGTone:          in.BGTone,
-			BGToneLabel:     in.BGToneLabel,
-			Frame:           in.Frame,
-			FrameLabel:      in.FrameLabel,
+			SelectedAttrs:   in.SelectedAttrs,
 			Quantity:        qty,
 			UnitPrice:       price,
 			VariantImageURL: in.VariantImageURL,

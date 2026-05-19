@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -111,19 +112,23 @@ func (r *OrderRepository) Create(ctx context.Context, ord domain.Order) (domain.
 			item.OrderID = ord.ID
 		}
 
-		itemQuery := `INSERT INTO order_items (id, order_id, product_id, product_title, product_subtitle, size_code, size_label, bg_tone, bg_tone_label, frame, frame_label, quantity, unit_price, variant_image_url, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now())
-		RETURNING id, order_id, product_id, product_title, product_subtitle, size_code, size_label, bg_tone, bg_tone_label, frame, frame_label, quantity, unit_price, variant_image_url`
+		itemQuery := `INSERT INTO order_items (id, order_id, product_id, product_title, product_subtitle, size_code, size_label, selected_attrs, quantity, unit_price, variant_image_url, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+		RETURNING id, order_id, product_id, product_title, product_subtitle, size_code, size_label, selected_attrs, quantity, unit_price, variant_image_url`
 
+		var selectedAttrsJSON []byte
 		err = tx.QueryRow(ctx, itemQuery,
 			item.ID, item.OrderID, item.ProductID, item.ProductTitle, item.ProductSubtitle,
-			item.SizeCode, item.SizeLabel, item.BGTone, item.BGToneLabel, item.Frame, item.FrameLabel,
+			item.SizeCode, item.SizeLabel, jsonOrNull(item.SelectedAttrs),
 			item.Quantity, item.UnitPrice, item.VariantImageURL,
 		).Scan(
 			&item.ID, &item.OrderID, &item.ProductID, &item.ProductTitle, &item.ProductSubtitle,
-			&item.SizeCode, &item.SizeLabel, &item.BGTone, &item.BGToneLabel, &item.Frame, &item.FrameLabel,
+			&item.SizeCode, &item.SizeLabel, &selectedAttrsJSON,
 			&item.Quantity, &item.UnitPrice, &item.VariantImageURL,
 		)
+		if len(selectedAttrsJSON) > 0 {
+			_ = json.Unmarshal(selectedAttrsJSON, &item.SelectedAttrs)
+		}
 		if err != nil {
 			return domain.Order{}, err
 		}
@@ -152,25 +157,28 @@ func (r *OrderRepository) UpdateStatus(ctx context.Context, id string, status st
 }
 
 func (r *OrderRepository) AddItem(ctx context.Context, item domain.OrderItem) (domain.OrderItem, error) {
-	query := `INSERT INTO order_items (id, order_id, product_id, product_title, product_subtitle, size_code, size_label, bg_tone, bg_tone_label, frame, frame_label, quantity, unit_price, variant_image_url, created_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now())
-	RETURNING id, order_id, product_id, product_title, product_subtitle, size_code, size_label, bg_tone, bg_tone_label, frame, frame_label, quantity, unit_price, variant_image_url`
+	query := `INSERT INTO order_items (id, order_id, product_id, product_title, product_subtitle, size_code, size_label, selected_attrs, quantity, unit_price, variant_image_url, created_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+	RETURNING id, order_id, product_id, product_title, product_subtitle, size_code, size_label, selected_attrs, quantity, unit_price, variant_image_url`
 
+	var selectedAttrsJSON []byte
 	err := r.pool.QueryRow(ctx, query,
 		item.ID, item.OrderID, item.ProductID, item.ProductTitle, item.ProductSubtitle,
-		item.SizeCode, item.SizeLabel, item.BGTone, item.BGToneLabel, item.Frame, item.FrameLabel,
+		item.SizeCode, item.SizeLabel, jsonOrNull(item.SelectedAttrs),
 		item.Quantity, item.UnitPrice, item.VariantImageURL,
 	).Scan(
 		&item.ID, &item.OrderID, &item.ProductID, &item.ProductTitle, &item.ProductSubtitle,
-		&item.SizeCode, &item.SizeLabel, &item.BGTone, &item.BGToneLabel, &item.Frame, &item.FrameLabel,
+		&item.SizeCode, &item.SizeLabel, &selectedAttrsJSON,
 		&item.Quantity, &item.UnitPrice, &item.VariantImageURL,
 	)
-
+	if len(selectedAttrsJSON) > 0 {
+		_ = json.Unmarshal(selectedAttrsJSON, &item.SelectedAttrs)
+	}
 	return item, err
 }
 
 func (r *OrderRepository) GetItems(ctx context.Context, orderID string) ([]domain.OrderItem, error) {
-	query := `SELECT id, order_id, product_id, product_title, product_subtitle, size_code, size_label, bg_tone, bg_tone_label, frame, frame_label, quantity, unit_price, variant_image_url
+	query := `SELECT id, order_id, product_id, product_title, product_subtitle, size_code, size_label, selected_attrs, quantity, unit_price, variant_image_url
 	FROM order_items WHERE order_id = $1`
 
 	rows, err := r.pool.Query(ctx, query, orderID)
@@ -182,15 +190,27 @@ func (r *OrderRepository) GetItems(ctx context.Context, orderID string) ([]domai
 	var items []domain.OrderItem
 	for rows.Next() {
 		var item domain.OrderItem
+		var selectedAttrsJSON []byte
 		err := rows.Scan(
 			&item.ID, &item.OrderID, &item.ProductID, &item.ProductTitle, &item.ProductSubtitle,
-			&item.SizeCode, &item.SizeLabel, &item.BGTone, &item.BGToneLabel, &item.Frame, &item.FrameLabel,
+			&item.SizeCode, &item.SizeLabel, &selectedAttrsJSON,
 			&item.Quantity, &item.UnitPrice, &item.VariantImageURL,
 		)
 		if err != nil {
 			return nil, err
 		}
+		if len(selectedAttrsJSON) > 0 {
+			_ = json.Unmarshal(selectedAttrsJSON, &item.SelectedAttrs)
+		}
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func jsonOrNull(v any) any {
+	if v == nil {
+		return nil
+	}
+	b, _ := json.Marshal(v)
+	return b
 }

@@ -18,12 +18,16 @@ func NewCategoryRepository(pool *pgxpool.Pool) *CategoryRepository {
 }
 
 func (r *CategoryRepository) List(ctx context.Context, includeInactive bool) ([]domain.Category, error) {
-	query := "SELECT id, name, slug, description, tone, image_url, sort_order, is_active, created_at, updated_at FROM categories"
+	query := `SELECT c.id, c.name, c.slug, c.description, c.tone, c.image_url, c.sort_order, c.is_active,
+		COUNT(p.id) FILTER (WHERE p.is_active = true) AS product_count,
+		c.created_at, c.updated_at
+		FROM categories c
+		LEFT JOIN products p ON p.category_id = c.id`
 
 	if !includeInactive {
-		query += " WHERE is_active = true"
+		query += " WHERE c.is_active = true"
 	}
-	query += " ORDER BY sort_order, created_at DESC"
+	query += " GROUP BY c.id ORDER BY c.sort_order, c.created_at DESC"
 
 	rows, err := r.pool.Query(ctx, query)
 	if err != nil {
@@ -36,7 +40,7 @@ func (r *CategoryRepository) List(ctx context.Context, includeInactive bool) ([]
 		var c domain.Category
 		err := rows.Scan(
 			&c.ID, &c.Name, &c.Slug, &c.Description, &c.Tone, &c.ImageURL,
-			&c.SortOrder, &c.IsActive, &c.CreatedAt, &c.UpdatedAt,
+			&c.SortOrder, &c.IsActive, &c.ProductCount, &c.CreatedAt, &c.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err

@@ -171,16 +171,13 @@ func (h *PublicHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		Address      string `json:"address"`
 		Note         string `json:"note"`
 		Items        []struct {
-			ProductID       string `json:"productId"`
-			SizeCode        string `json:"sizeCode"`
-			SizeLabel       string `json:"sizeLabel"`
-			BGTone          string `json:"bgTone"`
-			BGToneLabel     string `json:"bgToneLabel"`
-			Frame           string `json:"frame"`
-			FrameLabel      string `json:"frameLabel"`
-			Quantity        int    `json:"quantity"`
-			UnitPrice       int64  `json:"unitPrice"`
-			VariantImageURL string `json:"variantImageUrl"`
+			ProductID       string            `json:"productId"`
+			SizeCode        string            `json:"sizeCode"`
+			SizeLabel       string            `json:"sizeLabel"`
+			SelectedAttrs   map[string]string `json:"selectedAttrs"`
+			Quantity        int               `json:"quantity"`
+			UnitPrice       int64             `json:"unitPrice"`
+			VariantImageURL string            `json:"variantImageUrl"`
 		} `json:"items"`
 	}
 
@@ -195,10 +192,7 @@ func (h *PublicHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 			ProductID:       it.ProductID,
 			SizeCode:        ptrIfNotEmpty(it.SizeCode),
 			SizeLabel:       ptrIfNotEmpty(it.SizeLabel),
-			BGTone:          ptrIfNotEmpty(it.BGTone),
-			BGToneLabel:     ptrIfNotEmpty(it.BGToneLabel),
-			Frame:           ptrIfNotEmpty(it.Frame),
-			FrameLabel:      ptrIfNotEmpty(it.FrameLabel),
+			SelectedAttrs:   it.SelectedAttrs,
 			Quantity:        it.Quantity,
 			UnitPrice:       it.UnitPrice,
 			VariantImageURL: ptrIfNotEmpty(it.VariantImageURL),

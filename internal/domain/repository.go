@@ -20,14 +20,23 @@ type ProductRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
-// ProductImageRepository defines product image data operations
+// ImageRepository manages the central image library
+type ImageRepository interface {
+	List(ctx context.Context) ([]Image, error)
+	Get(ctx context.Context, id string) (Image, bool, error)
+	Create(ctx context.Context, img Image) (Image, error)
+	Update(ctx context.Context, id string, name string) (Image, error)
+	Delete(ctx context.Context, id string) error
+}
+
+// ProductImageRepository manages product→image join + attrs
 type ProductImageRepository interface {
 	ListByProduct(ctx context.Context, productID string) ([]ProductImage, error)
 	Get(ctx context.Context, id string) (ProductImage, bool, error)
-	Create(ctx context.Context, img ProductImage) (ProductImage, error)
-	Update(ctx context.Context, id string, img ProductImage) (ProductImage, error)
-	Delete(ctx context.Context, id string) error
-	DeleteByProduct(ctx context.Context, productID string) error
+	Attach(ctx context.Context, img ProductImage) (ProductImage, error)
+	SetAttrs(ctx context.Context, productImageID string, attrs []VariantAttr) error
+	Detach(ctx context.Context, id string) error
+	DetachByProduct(ctx context.Context, productID string) error
 }
 
 // ProductSizeRepository defines product size data operations
@@ -38,6 +47,12 @@ type ProductSizeRepository interface {
 	Update(ctx context.Context, id string, s ProductSize) (ProductSize, error)
 	Delete(ctx context.Context, id string) error
 	DeleteByProduct(ctx context.Context, productID string) error
+}
+
+// ProductSKURepository manages SKU-based pricing (size × variant combo → price)
+type ProductSKURepository interface {
+	ListByProduct(ctx context.Context, productID string) ([]ProductSKU, error)
+	SetByProduct(ctx context.Context, productID string, skus []ProductSKU) error
 }
 
 // CampaignRepository defines campaign data operations

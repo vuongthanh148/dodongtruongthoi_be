@@ -19,10 +19,7 @@ type CreateOrderItem struct {
 	ProductID       string
 	SizeCode        *string
 	SizeLabel       *string
-	BGTone          *string
-	BGToneLabel     *string
-	Frame           *string
-	FrameLabel      *string
+	SelectedAttrs   map[string]string
 	Quantity        int
 	UnitPrice       int64
 	VariantImageURL *string
@@ -38,6 +35,7 @@ type ProductPublic struct {
 	Price         int64                 `json:"price"`
 	DiscountPrice *int64                `json:"discount_price,omitempty"`
 	Sizes         []domain.ProductSize  `json:"sizes"`
+	SKUs          []domain.ProductSKU   `json:"skus"`
 	Images        []domain.ProductImage `json:"images"`
 	Rating        float64               `json:"rating"`
 	ReviewCount   int                   `json:"review_count"`
@@ -54,6 +52,7 @@ type ImageUploader interface {
 type PlatformUsecase struct {
 	*AuthUsecase
 	*ProductUsecase
+	*ImageUsecase
 	*CategoryUsecase
 	*OrderUsecase
 	*CampaignUsecase
@@ -66,21 +65,23 @@ type PlatformUsecase struct {
 }
 
 type PlatformUsecaseConfig struct {
-	JWTSecret        string
-	CategoryRepo     domain.CategoryRepository
-	ProductRepo      domain.ProductRepository
-	ProductImageRepo domain.ProductImageRepository
-	ProductSizeRepo  domain.ProductSizeRepository
-	CampaignRepo     domain.CampaignRepository
-	ReviewRepo       domain.ReviewRepository
-	OrderRepo        domain.OrderRepository
-	WishlistRepo     domain.WishlistRepository
-	BannerRepo       domain.BannerRepository
-	ContactRepo      domain.ContactLinkRepository
-	AdminUserRepo    domain.AdminUserRepository
-	SettingsRepo     domain.SiteSettingsRepository
-	CustomerPhotoRepo domain.CustomerPhotoRepository // optional - feature may be added later
-	ImageUploader    ImageUploader                 // optional
+	JWTSecret         string
+	CategoryRepo      domain.CategoryRepository
+	ProductRepo       domain.ProductRepository
+	ProductImageRepo  domain.ProductImageRepository
+	ProductSizeRepo   domain.ProductSizeRepository
+	ProductSKURepo    domain.ProductSKURepository
+	ImageRepo         domain.ImageRepository
+	CampaignRepo      domain.CampaignRepository
+	ReviewRepo        domain.ReviewRepository
+	OrderRepo         domain.OrderRepository
+	WishlistRepo      domain.WishlistRepository
+	BannerRepo        domain.BannerRepository
+	ContactRepo       domain.ContactLinkRepository
+	AdminUserRepo     domain.AdminUserRepository
+	SettingsRepo      domain.SiteSettingsRepository
+	CustomerPhotoRepo domain.CustomerPhotoRepository
+	ImageUploader     ImageUploader
 }
 
 // NewPlatformUsecase creates a usecase that uses PostgreSQL repositories exclusively
@@ -94,7 +95,8 @@ func NewPlatformUsecase(cfg PlatformUsecaseConfig) (*PlatformUsecase, error) {
 	if cfg.CategoryRepo == nil || cfg.ProductRepo == nil || cfg.OrderRepo == nil ||
 		cfg.ReviewRepo == nil || cfg.WishlistRepo == nil || cfg.BannerRepo == nil ||
 		cfg.ContactRepo == nil || cfg.AdminUserRepo == nil || cfg.SettingsRepo == nil ||
-		cfg.ProductImageRepo == nil || cfg.ProductSizeRepo == nil || cfg.CampaignRepo == nil {
+		cfg.ProductImageRepo == nil || cfg.ProductSizeRepo == nil || cfg.ProductSKURepo == nil ||
+		cfg.CampaignRepo == nil || cfg.ImageRepo == nil {
 		return nil, errors.New("all repositories must be provided; in-memory fallback is not supported")
 	}
 
@@ -107,9 +109,14 @@ func NewPlatformUsecase(cfg PlatformUsecaseConfig) (*PlatformUsecase, error) {
 			cfg.ProductRepo,
 			cfg.ProductImageRepo,
 			cfg.ProductSizeRepo,
+			cfg.ProductSKURepo,
 			cfg.ReviewRepo,
 			cfg.CampaignRepo,
 			cfg.CategoryRepo,
+			cfg.ImageUploader,
+		),
+		ImageUsecase: NewImageUsecase(
+			cfg.ImageRepo,
 			cfg.ImageUploader,
 		),
 		CategoryUsecase: NewCategoryUsecase(
