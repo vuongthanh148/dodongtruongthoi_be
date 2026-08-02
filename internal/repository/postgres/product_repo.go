@@ -123,6 +123,18 @@ func (r *ProductRepository) Get(ctx context.Context, id string, includeInactive 
 }
 
 func (r *ProductRepository) Create(ctx context.Context, p domain.Product) (domain.Product, error) {
+	if p.ZodiacIDs == nil {
+		p.ZodiacIDs = []string{}
+	}
+	if p.PurposePlace == nil {
+		p.PurposePlace = []string{}
+	}
+	if p.PurposeUse == nil {
+		p.PurposeUse = []string{}
+	}
+	if p.PurposeAvoid == nil {
+		p.PurposeAvoid = []string{}
+	}
 	variantOptionsJSON, _ := json.Marshal(p.VariantOptions)
 	defaultVariantJSON, _ := json.Marshal(p.DefaultVariant)
 

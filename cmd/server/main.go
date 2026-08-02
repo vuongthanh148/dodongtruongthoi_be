@@ -10,9 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/config"
 	httpdelivery "github.com/vuongthanh148/dodongtruongthoi_be/internal/delivery/http"
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/delivery/http/handler"
+	"github.com/vuongthanh148/dodongtruongthoi_be/internal/domain"
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/infrastructure/database"
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/infrastructure/storage"
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/repository/postgres"
@@ -36,6 +40,11 @@ func main() {
 	}
 	defer database.Close(dbPool)
 	log.Println("✓ PostgreSQL connected")
+
+	if err := database.Migrate(ctx, dbPool); err != nil {
+		log.Fatalf("failed to run migrations: %v", err)
+	}
+	log.Println("✓ Migrations up to date")
 
 	uploader, err := storage.NewCloudinaryUploader(cfg.CloudinaryCloudName, cfg.CloudinaryAPIKey, cfg.CloudinaryAPISecret)
 	if err != nil {
@@ -74,6 +83,10 @@ func main() {
 	}
 	log.Println("✓ Using PostgreSQL repositories")
 
+	if err := bootstrapAdmin(ctx, postgres.NewAdminUserRepository(dbPool), cfg.AdminUsername, cfg.AdminPassword); err != nil {
+		log.Fatalf("failed to bootstrap admin user: %v", err)
+	}
+
 	publicHandler := handler.NewPublicHandler(platformUsecase)
 	adminHandler := handler.NewAdminHandler(platformUsecase)
 	router := httpdelivery.NewRouter(cfg, healthHandler, publicHandler, adminHandler, platformUsecase)
@@ -105,4 +118,41 @@ func main() {
 		log.Printf("graceful shutdown failed: %v", err)
 	}
 	log.Println("server stopped")
+}
+
+// bootstrapAdmin creates an initial admin user from env credentials when none
+// with that username exists yet. No-op if credentials are unset. Lets fresh
+// deployments (Neon/Render) provision the first admin without manual SQL.
+func bootstrapAdmin(ctx context.Context, repo domain.AdminUserRepository, username, password string) error {
+	if username == "" || password == "" {
+		log.Println("ℹ Admin bootstrap skipped (ADMIN_USERNAME/ADMIN_PASSWORD not set)")
+		return nil
+	}
+
+	_, exists, err := repo.GetByUsername(ctx, username)
+	if err != nil {
+		return err
+	}
+	if exists {
+		log.Printf("ℹ Admin user %q already exists, bootstrap skipped", username)
+		return nil
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	_, err = repo.Create(ctx, domain.AdminUser{
+		ID:           uuid.New().String(),
+		Username:     username,
+		PasswordHash: string(hash),
+		IsActive:     true,
+		CreatedAt:    time.Now(),
+	})
+	if err != nil {
+		return err
+	}
+	log.Printf("✓ Admin user %q created via bootstrap", username)
+	return nil
 }

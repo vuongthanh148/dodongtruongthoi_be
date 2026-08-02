@@ -1,0 +1,32 @@
+# Render Blueprint — backend API (free tier).
+# Deploy: push repo to GitHub, then Render → New → Blueprint → pick this repo.
+# DATABASE_URL points at an external Neon Postgres (set as a secret in dashboard).
+services:
+  - type: web
+    name: dodongtruongthoi-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: PORT
+        value: "8080"
+      - key: JWT_SECRET
+        generateValue: true # Render generates a strong value once
+      - key: DATABASE_URL
+        sync: false # set manually = Neon pooled connection string
+      - key: CORS_ORIGINS
+        sync: false # set to your Vercel URL, e.g. https://your-app.vercel.app
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false # first-deploy admin bootstrap
+      - key: ADMIN_PASSWORD
+        sync: false

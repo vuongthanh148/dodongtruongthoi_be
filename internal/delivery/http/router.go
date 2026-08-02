@@ -16,8 +16,8 @@ func corsMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			allowedOrigins := []string{"*"}
-			if cfg.AppEnv == "production" {
-				allowedOrigins = []string{"https://dodongtruongthoi.vn"}
+			if len(cfg.CORSOrigins) > 0 {
+				allowedOrigins = cfg.CORSOrigins
 			}
 
 			origin := r.Header.Get("Origin")

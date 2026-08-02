@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/domain"
 )
 
@@ -151,11 +152,7 @@ func (u *ProductUsecase) CreateProduct(ctx context.Context, p domain.Product) (d
 	now := time.Now()
 	p.CreatedAt = now
 	p.UpdatedAt = now
-	if p.IsActive == false && p.ID != "" {
-		// Only set to false if explicitly false, otherwise default to true
-	} else {
-		p.IsActive = true
-	}
+	p.IsActive = true
 
 	return u.productRepo.Create(ctx, p)
 }
@@ -267,7 +264,7 @@ func (u *ProductUsecase) SetProductSizes(ctx context.Context, productID string, 
 	for i := range sizes {
 		sizes[i].ProductID = productID
 		if sizes[i].ID == "" {
-			sizes[i].ID = fmt.Sprintf("%s-size-%d", productID, i)
+			sizes[i].ID = uuid.New().String()
 		}
 		created, err := u.productSizeRepo.Create(ctx, sizes[i])
 		if err != nil {
