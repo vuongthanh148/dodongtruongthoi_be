@@ -32,7 +32,7 @@ func corsMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 			}
 
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, ngrok-skip-browser-warning")
 			w.Header().Set("Access-Control-Max-Age", "86400")
 
 			if r.Method == http.MethodOptions {
