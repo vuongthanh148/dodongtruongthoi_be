@@ -1,0 +1,13 @@
+name: Keep backend + DB warm
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping categories endpoint (touches Render + Neon)
+        run: curl -sf https://dodongtruongthoi-api.onrender.com/api/v1/categories -o /dev/null
