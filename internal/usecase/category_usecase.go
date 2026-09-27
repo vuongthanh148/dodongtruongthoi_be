@@ -3,9 +3,11 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/domain"
+	"github.com/vuongthanh148/dodongtruongthoi_be/pkg/slug"
 )
 
 type CategoryUsecase struct {
@@ -31,9 +33,15 @@ func (u *CategoryUsecase) ListAllCategories(ctx context.Context) ([]domain.Categ
 }
 
 func (u *CategoryUsecase) CreateCategory(ctx context.Context, c domain.Category) (domain.Category, error) {
-	if c.ID == "" || c.Name == "" {
-		return domain.Category{}, errors.New("id and name are required")
+	if c.Name == "" {
+		return domain.Category{}, errors.New("name is required")
 	}
+
+	base := c.ID
+	if base == "" {
+		base = c.Name
+	}
+	c.ID = u.uniqueSlug(ctx, slug.Generate(base))
 
 	now := time.Now()
 	c.CreatedAt = now
@@ -41,6 +49,19 @@ func (u *CategoryUsecase) CreateCategory(ctx context.Context, c domain.Category)
 	c.IsActive = true
 
 	return u.categoryRepo.Create(ctx, c)
+}
+
+// uniqueSlug returns base, or base-2, base-3, ... — whichever is the
+// first not already taken by an existing category (active or not).
+func (u *CategoryUsecase) uniqueSlug(ctx context.Context, base string) string {
+	candidate := base
+	for i := 2; ; i++ {
+		_, exists, err := u.categoryRepo.Get(ctx, candidate, true)
+		if err != nil || !exists {
+			return candidate
+		}
+		candidate = fmt.Sprintf("%s-%d", base, i)
+	}
 }
 
 func (u *CategoryUsecase) UpdateCategory(ctx context.Context, id string, updates domain.Category) (domain.Category, error) {
@@ -59,9 +80,6 @@ func (u *CategoryUsecase) UpdateCategory(ctx context.Context, id string, updates
 
 	if updates.Name != "" {
 		existing.Name = updates.Name
-	}
-	if updates.Slug != "" {
-		existing.Slug = updates.Slug
 	}
 	if updates.Description != nil {
 		existing.Description = updates.Description
