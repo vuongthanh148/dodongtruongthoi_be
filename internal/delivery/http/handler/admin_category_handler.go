@@ -23,7 +23,6 @@ func (h *AdminHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		ID          string `json:"id"`
 		Name        string `json:"name"`
-		Slug        string `json:"slug"`
 		Description string `json:"description"`
 		Tone        string `json:"tone"`
 		ImageURL    string `json:"image_url"`
@@ -37,7 +36,6 @@ func (h *AdminHandler) CreateCategory(w http.ResponseWriter, r *http.Request) {
 	category := domain.Category{
 		ID:          body.ID,
 		Name:        body.Name,
-		Slug:        body.Slug,
 		Description: ptrIfNotEmpty(body.Description),
 		Tone:        body.Tone,
 		ImageURL:    ptrIfNotEmpty(body.ImageURL),
@@ -61,7 +59,6 @@ func (h *AdminHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		Name        string `json:"name"`
-		Slug        string `json:"slug"`
 		Description string `json:"description"`
 		Tone        string `json:"tone"`
 		ImageURL    string `json:"image_url"`
@@ -75,7 +72,6 @@ func (h *AdminHandler) UpdateCategory(w http.ResponseWriter, r *http.Request) {
 
 	updates := domain.Category{
 		Name:        body.Name,
-		Slug:        body.Slug,
 		Description: ptrIfNotEmpty(body.Description),
 		Tone:        body.Tone,
 		ImageURL:    ptrIfNotEmpty(body.ImageURL),

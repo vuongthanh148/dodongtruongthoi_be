@@ -18,7 +18,7 @@ func NewCategoryRepository(pool *pgxpool.Pool) *CategoryRepository {
 }
 
 func (r *CategoryRepository) List(ctx context.Context, includeInactive bool) ([]domain.Category, error) {
-	query := `SELECT c.id, c.name, c.slug, c.description, c.tone, c.image_url, c.sort_order, c.is_active,
+	query := `SELECT c.slug, c.name, c.description, c.tone, c.image_url, c.sort_order, c.is_active,
 		COUNT(p.id) FILTER (WHERE p.is_active = true) AS product_count,
 		c.created_at, c.updated_at
 		FROM categories c
@@ -39,7 +39,7 @@ func (r *CategoryRepository) List(ctx context.Context, includeInactive bool) ([]
 	for rows.Next() {
 		var c domain.Category
 		err := rows.Scan(
-			&c.ID, &c.Name, &c.Slug, &c.Description, &c.Tone, &c.ImageURL,
+			&c.ID, &c.Name, &c.Description, &c.Tone, &c.ImageURL,
 			&c.SortOrder, &c.IsActive, &c.ProductCount, &c.CreatedAt, &c.UpdatedAt,
 		)
 		if err != nil {
@@ -50,16 +50,16 @@ func (r *CategoryRepository) List(ctx context.Context, includeInactive bool) ([]
 	return categories, rows.Err()
 }
 
-func (r *CategoryRepository) Get(ctx context.Context, id string, includeInactive bool) (domain.Category, bool, error) {
-	query := "SELECT id, name, slug, description, tone, image_url, sort_order, is_active, created_at, updated_at FROM categories WHERE id = $1"
+func (r *CategoryRepository) Get(ctx context.Context, slug string, includeInactive bool) (domain.Category, bool, error) {
+	query := "SELECT slug, name, description, tone, image_url, sort_order, is_active, created_at, updated_at FROM categories WHERE slug = $1"
 
 	if !includeInactive {
 		query += " AND is_active = true"
 	}
 
 	var c domain.Category
-	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&c.ID, &c.Name, &c.Slug, &c.Description, &c.Tone, &c.ImageURL,
+	err := r.pool.QueryRow(ctx, query, slug).Scan(
+		&c.ID, &c.Name, &c.Description, &c.Tone, &c.ImageURL,
 		&c.SortOrder, &c.IsActive, &c.CreatedAt, &c.UpdatedAt,
 	)
 
@@ -73,49 +73,48 @@ func (r *CategoryRepository) Get(ctx context.Context, id string, includeInactive
 }
 
 func (r *CategoryRepository) Create(ctx context.Context, c domain.Category) (domain.Category, error) {
-	query := `INSERT INTO categories (id, name, slug, description, tone, image_url, sort_order, is_active, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	query := `INSERT INTO categories (slug, name, description, tone, image_url, sort_order, is_active, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	RETURNING created_at, updated_at`
 
 	err := r.pool.QueryRow(ctx, query,
-		c.ID, c.Name, c.Slug, c.Description, c.Tone, c.ImageURL,
+		c.ID, c.Name, c.Description, c.Tone, c.ImageURL,
 		c.SortOrder, c.IsActive, c.CreatedAt, c.UpdatedAt,
 	).Scan(&c.CreatedAt, &c.UpdatedAt)
 
 	return c, err
 }
 
-func (r *CategoryRepository) Update(ctx context.Context, id string, c domain.Category) (domain.Category, error) {
-	if id == "" {
-		return domain.Category{}, errors.New("category id is required")
+func (r *CategoryRepository) Update(ctx context.Context, slug string, c domain.Category) (domain.Category, error) {
+	if slug == "" {
+		return domain.Category{}, errors.New("category slug is required")
 	}
 
 	query := `UPDATE categories SET
 		name = COALESCE(NULLIF($2, ''), name),
-		slug = COALESCE(NULLIF($3, ''), slug),
-		description = $4,
-		tone = COALESCE(NULLIF($5, ''), tone),
-		image_url = COALESCE(NULLIF($6, ''), image_url),
-		sort_order = $7,
-		is_active = $8,
+		description = $3,
+		tone = COALESCE(NULLIF($4, ''), tone),
+		image_url = COALESCE(NULLIF($5, ''), image_url),
+		sort_order = $6,
+		is_active = $7,
 		updated_at = now()
-	WHERE id = $9
-	RETURNING id, name, slug, description, tone, image_url, sort_order, is_active, created_at, updated_at`
+	WHERE slug = $1
+	RETURNING slug, name, description, tone, image_url, sort_order, is_active, created_at, updated_at`
 
 	var result domain.Category
 	err := r.pool.QueryRow(ctx, query,
-		id, c.Name, c.Slug, c.Description, c.Tone, c.ImageURL,
-		c.SortOrder, c.IsActive, id,
+		slug, c.Name, c.Description, c.Tone, c.ImageURL,
+		c.SortOrder, c.IsActive,
 	).Scan(
-		&result.ID, &result.Name, &result.Slug, &result.Description, &result.Tone, &result.ImageURL,
+		&result.ID, &result.Name, &result.Description, &result.Tone, &result.ImageURL,
 		&result.SortOrder, &result.IsActive, &result.CreatedAt, &result.UpdatedAt,
 	)
 
 	return result, err
 }
 
-func (r *CategoryRepository) Delete(ctx context.Context, id string) error {
-	result, err := r.pool.Exec(ctx, "UPDATE categories SET is_active = false, updated_at = now() WHERE id = $1", id)
+func (r *CategoryRepository) Delete(ctx context.Context, slug string) error {
+	result, err := r.pool.Exec(ctx, "UPDATE categories SET is_active = false, updated_at = now() WHERE slug = $1", slug)
 	if err != nil {
 		return err
 	}

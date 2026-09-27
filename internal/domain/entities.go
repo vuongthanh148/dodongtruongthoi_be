@@ -5,9 +5,8 @@ import (
 )
 
 type Category struct {
-	ID           string    `json:"id"`
+	ID           string    `json:"id"` // URL-safe slug; auto-generated from Name if not provided, editable until first save
 	Name         string    `json:"name"`
-	Slug         string    `json:"slug"`
 	Description  *string   `json:"description,omitempty"`
 	Tone         string    `json:"tone"`
 	ImageURL     *string   `json:"image_url,omitempty"`
