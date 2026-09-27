@@ -920,10 +920,11 @@ err := r.pool.QueryRow(ctx, query,
 ).Scan(&p.CreatedAt, &p.UpdatedAt)
 ```
 
-(Note: `$4` is now `p.CategoryID`, the slug — the argument list shifts
-by one position since `category_id`'s placeholder moved from `$4` in
-the column list to being wrapped in a subquery; count carefully against
-the existing argument order, which is otherwise unchanged.)
+(Note: the Go `args` slice passed to `QueryRow` is unchanged — still
+`p.ID, p.Title, p.Subtitle, p.CategoryID, p.Badge, ...` in that order.
+Only the SQL text changes: the `$4` placeholder, which already meant
+`p.CategoryID`, is now wrapped in `(SELECT id FROM categories WHERE
+slug = $4)` instead of being inserted raw. No argument positions move.)
 
 - [ ] **Step 5: Update `Update` similarly**
 
