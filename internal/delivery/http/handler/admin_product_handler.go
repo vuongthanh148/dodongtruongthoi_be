@@ -123,8 +123,8 @@ func (h *AdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		PurposeUse     []string                `json:"purpose_use"`
 		PurposeAvoid   []string                `json:"purpose_avoid"`
 		Specs          map[string]string       `json:"specs"`
-		RequiresSize   bool                    `json:"requires_size"`
-		IsActive       bool                    `json:"is_active"`
+		RequiresSize   *bool                   `json:"requires_size"`
+		IsActive       *bool                   `json:"is_active"`
 		SortOrder      int                     `json:"sort_order"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -147,12 +147,10 @@ func (h *AdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		PurposeUse:     body.PurposeUse,
 		PurposeAvoid:   body.PurposeAvoid,
 		Specs:          body.Specs,
-		RequiresSize:   body.RequiresSize,
-		IsActive:       body.IsActive,
 		SortOrder:      body.SortOrder,
 	}
 
-	result, err := h.platform.UpdateProduct(r.Context(), id, updates)
+	result, err := h.platform.UpdateProduct(r.Context(), id, updates, body.IsActive, body.RequiresSize)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return

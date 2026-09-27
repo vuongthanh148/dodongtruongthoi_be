@@ -157,7 +157,7 @@ func (u *ProductUsecase) CreateProduct(ctx context.Context, p domain.Product) (d
 	return u.productRepo.Create(ctx, p)
 }
 
-func (u *ProductUsecase) UpdateProduct(ctx context.Context, id string, updates domain.Product) (domain.Product, error) {
+func (u *ProductUsecase) UpdateProduct(ctx context.Context, id string, updates domain.Product, isActive *bool, requiresSize *bool) (domain.Product, error) {
 	if strings.TrimSpace(id) == "" {
 		return domain.Product{}, fmt.Errorf("%w: product id is required", domain.ErrInvalidInput)
 	}
@@ -221,8 +221,12 @@ func (u *ProductUsecase) UpdateProduct(ctx context.Context, id string, updates d
 	if len(updates.DefaultVariant) > 0 {
 		existing.DefaultVariant = updates.DefaultVariant
 	}
-	existing.RequiresSize = updates.RequiresSize
-	existing.IsActive = updates.IsActive
+	if requiresSize != nil {
+		existing.RequiresSize = *requiresSize
+	}
+	if isActive != nil {
+		existing.IsActive = *isActive
+	}
 	existing.SortOrder = updates.SortOrder
 	existing.UpdatedAt = time.Now()
 
