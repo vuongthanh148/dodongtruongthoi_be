@@ -21,9 +21,11 @@ func NewProductRepository(pool *pgxpool.Pool) *ProductRepository {
 }
 
 const productColumns = `
-	id, title, subtitle, category_id, badge, base_price, description, meaning,
-	variant_options, default_variant, zodiac_ids, purpose_place, purpose_use,
-	purpose_avoid, specs, requires_size, is_active, sort_order, created_at, updated_at`
+	p.id, p.title, p.subtitle, c.slug AS category_id, p.badge, p.base_price, p.description, p.meaning,
+	p.variant_options, p.default_variant, p.zodiac_ids, p.purpose_place, p.purpose_use,
+	p.purpose_avoid, p.specs, p.requires_size, p.is_active, p.sort_order, p.created_at, p.updated_at`
+
+const productFrom = `FROM products p JOIN categories c ON c.id = p.category_id`
 
 func scanProduct(row pgx.Row) (domain.Product, error) {
 	var p domain.Product
@@ -55,27 +57,27 @@ func scanProduct(row pgx.Row) (domain.Product, error) {
 }
 
 func (r *ProductRepository) List(ctx context.Context, q domain.ProductQuery, includeInactive bool) ([]domain.Product, error) {
-	query := "SELECT " + productColumns + " FROM products WHERE 1=1"
+	query := "SELECT " + productColumns + " " + productFrom + " WHERE 1=1"
 	args := []interface{}{}
 	argCount := 1
 
 	if !includeInactive {
-		query += " AND is_active = true"
+		query += " AND p.is_active = true"
 	}
 	if q.Category != "" {
-		query += fmt.Sprintf(" AND category_id = $%d", argCount)
+		query += fmt.Sprintf(" AND c.slug = $%d", argCount)
 		args = append(args, q.Category)
 		argCount++
 	}
 
-	orderBy := "sort_order, created_at DESC"
+	orderBy := "p.sort_order, p.created_at DESC"
 	switch q.Sort {
 	case "price_asc":
-		orderBy = "base_price ASC, sort_order"
+		orderBy = "p.base_price ASC, p.sort_order"
 	case "price_desc":
-		orderBy = "base_price DESC, sort_order"
+		orderBy = "p.base_price DESC, p.sort_order"
 	case "newest":
-		orderBy = "created_at DESC, sort_order"
+		orderBy = "p.created_at DESC, p.sort_order"
 	}
 	query += " ORDER BY " + orderBy
 
@@ -107,9 +109,9 @@ func (r *ProductRepository) List(ctx context.Context, q domain.ProductQuery, inc
 }
 
 func (r *ProductRepository) Get(ctx context.Context, id string, includeInactive bool) (domain.Product, bool, error) {
-	query := "SELECT " + productColumns + " FROM products WHERE id = $1"
+	query := "SELECT " + productColumns + " " + productFrom + " WHERE p.id = $1"
 	if !includeInactive {
-		query += " AND is_active = true"
+		query += " AND p.is_active = true"
 	}
 
 	p, err := scanProduct(r.pool.QueryRow(ctx, query, id))
@@ -143,7 +145,7 @@ func (r *ProductRepository) Create(ctx context.Context, p domain.Product) (domai
 		variant_options, default_variant, zodiac_ids, purpose_place, purpose_use,
 		purpose_avoid, specs, requires_size, is_active, sort_order, created_at, updated_at
 	) VALUES (
-		$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20
+		$1,$2,$3,(SELECT id FROM categories WHERE slug = $4),$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20
 	) RETURNING created_at, updated_at`
 
 	err := r.pool.QueryRow(ctx, query,
@@ -168,7 +170,7 @@ func (r *ProductRepository) Update(ctx context.Context, id string, p domain.Prod
 	query := `UPDATE products SET
 		title          = COALESCE(NULLIF($2, ''), title),
 		subtitle       = $3,
-		category_id    = COALESCE(NULLIF($4, ''), category_id),
+		category_id    = COALESCE((SELECT id FROM categories WHERE slug = NULLIF($4, '')), category_id),
 		badge          = $5,
 		base_price     = CASE WHEN $6 > 0 THEN $6 ELSE base_price END,
 		description    = $7,
@@ -184,19 +186,23 @@ func (r *ProductRepository) Update(ctx context.Context, id string, p domain.Prod
 		is_active      = $17,
 		sort_order     = $18,
 		updated_at     = now()
-	WHERE id = $1
-	RETURNING ` + productColumns
+	WHERE id = $1`
 
-	result, err := scanProduct(r.pool.QueryRow(ctx, query,
+	tag, err := r.pool.Exec(ctx, query,
 		id, p.Title, p.Subtitle, p.CategoryID, p.Badge, p.BasePrice,
 		p.Description, p.Meaning,
 		variantOptionsJSON, defaultVariantJSON,
 		p.ZodiacIDs, p.PurposePlace, p.PurposeUse, p.PurposeAvoid,
 		p.Specs, p.RequiresSize, p.IsActive, p.SortOrder,
-	))
-	if errors.Is(err, pgx.ErrNoRows) {
+	)
+	if err != nil {
+		return domain.Product{}, err
+	}
+	if tag.RowsAffected() == 0 {
 		return domain.Product{}, errors.New("product not found")
 	}
+
+	result, _, err := r.Get(ctx, id, true)
 	return result, err
 }
 
