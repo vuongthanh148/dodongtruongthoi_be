@@ -35,3 +35,6 @@ go.work.sum
 /server
 /bin/
 *.jpg
+
+# Subagent-driven-development scratch workspace
+/.superpowers/
