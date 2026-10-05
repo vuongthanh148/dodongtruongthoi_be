@@ -32,7 +32,7 @@ func corsMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 			}
 
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, ngrok-skip-browser-warning")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, Accept, ngrok-skip-browser-warning, X-Order-Token")
 			w.Header().Set("Access-Control-Max-Age", "86400")
 
 			if r.Method == http.MethodOptions {
@@ -78,9 +78,13 @@ func NewRouter(
 		r.Get("/contacts", publicHandler.ListContacts)
 		r.Get("/settings", publicHandler.GetSettings)
 
+		r.Post("/contacts/messages", publicHandler.SubmitContactMessage)
+
 		r.Post("/orders", publicHandler.CreateOrder)
 		r.Get("/orders", publicHandler.ListOrdersByPhone)
+		r.Post("/orders/verify", publicHandler.VerifyOrder)
 		r.Get("/orders/{id}", publicHandler.GetOrder)
+		r.Post("/orders/{id}/cancel", publicHandler.CancelOrder)
 
 		r.Get("/wishlists", publicHandler.GetWishlistByPhone)
 		r.Post("/wishlists", publicHandler.SyncWishlist)
@@ -138,6 +142,9 @@ func NewRouter(
 				r.Post("/contacts", adminHandler.CreateContact)
 				r.Put("/contacts/{id}", adminHandler.UpdateContact)
 				r.Delete("/contacts/{id}", adminHandler.DeleteContact)
+
+				r.Get("/contact-messages", adminHandler.ListContactMessages)
+				r.Put("/contact-messages/{id}", adminHandler.SetContactMessageHandled)
 
 				r.Get("/orders", adminHandler.ListOrders)
 				r.Get("/orders/{id}", adminHandler.GetOrder)

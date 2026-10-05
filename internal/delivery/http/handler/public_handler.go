@@ -2,9 +2,11 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -211,7 +213,17 @@ func (h *PublicHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Success(w, http.StatusCreated, order)
+	response.Success(w, http.StatusCreated, createdOrderResponse{
+		Order:      order,
+		LookupCode: order.LookupCode,
+	})
+}
+
+// createdOrderResponse is the create view of an order. It is the only response that
+// returns the lookup code, which the buyer keeps to verify the order later.
+type createdOrderResponse struct {
+	domain.Order
+	LookupCode string `json:"lookup_code"`
 }
 
 func (h *PublicHandler) ListOrdersByPhone(w http.ResponseWriter, r *http.Request) {
@@ -225,11 +237,137 @@ func (h *PublicHandler) ListOrdersByPhone(w http.ResponseWriter, r *http.Request
 		response.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	response.Success(w, http.StatusOK, result)
+	summaries := make([]orderSummary, 0, len(result))
+	for _, ord := range result {
+		summaries = append(summaries, toOrderSummary(ord))
+	}
+	response.Success(w, http.StatusOK, summaries)
 }
 
+// orderSummary is the list view of an order. It omits customer details, the
+// delivery address, notes and unit prices; those are only returned by GetOrder.
+type orderSummary struct {
+	ID          string             `json:"id"`
+	Status      string             `json:"status"`
+	CreatedAt   time.Time          `json:"created_at"`
+	TotalAmount int64              `json:"total_amount"`
+	Items       []orderSummaryItem `json:"items"`
+}
+
+type orderSummaryItem struct {
+	ProductTitle string `json:"product_title"`
+	Quantity     int    `json:"quantity"`
+}
+
+func toOrderSummary(ord domain.Order) orderSummary {
+	items := make([]orderSummaryItem, 0, len(ord.Items))
+	for _, it := range ord.Items {
+		items = append(items, orderSummaryItem{ProductTitle: it.ProductTitle, Quantity: it.Quantity})
+	}
+	return orderSummary{
+		ID:          ord.ID,
+		Status:      ord.Status,
+		CreatedAt:   ord.CreatedAt,
+		TotalAmount: ord.TotalAmount,
+		Items:       items,
+	}
+}
+
+// VerifyOrder exchanges a phone and lookup code for a short-lived order token.
+func (h *PublicHandler) VerifyOrder(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Phone string `json:"phone"`
+		Code  string `json:"code"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	if strings.TrimSpace(body.Phone) == "" || strings.TrimSpace(body.Code) == "" {
+		response.Error(w, http.StatusBadRequest, "phone and code are required")
+		return
+	}
+
+	session, err := h.platform.VerifyOrderLookup(r.Context(), body.Phone, body.Code)
+	if err != nil {
+		var locked usecase.OrderLookupLockedError
+		var invalid usecase.OrderLookupInvalidCodeError
+		switch {
+		case errors.As(err, &locked):
+			response.ErrorData(w, http.StatusTooManyRequests, "locked", map[string]any{
+				"locked_until": locked.LockedUntil.Format(time.RFC3339),
+			})
+		case errors.As(err, &invalid):
+			response.ErrorData(w, http.StatusUnauthorized, "invalid code", map[string]any{
+				"remaining_attempts": invalid.RemainingAttempts,
+			})
+		default:
+			response.Error(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, map[string]any{
+		"token":      session.Token,
+		"expires_at": session.ExpiresAt.Format(time.RFC3339),
+		"order_id":   session.OrderID,
+	})
+}
+
+// authorizeOrder writes 401 and returns false unless the X-Order-Token header is a
+// live session verified for order id.
+func (h *PublicHandler) authorizeOrder(w http.ResponseWriter, r *http.Request, id string) bool {
+	ok, err := h.platform.AuthorizeOrder(r.Context(), r.Header.Get("X-Order-Token"), id)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, err.Error())
+		return false
+	}
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "verification required")
+		return false
+	}
+	return true
+}
+
+// GetOrder returns the full order to the buyer whose token was verified for it.
 func (h *PublicHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if !h.authorizeOrder(w, r, id) {
+		return
+	}
+
+	row, ok, err := h.platform.GetOrder(r.Context(), id)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !ok {
+		response.Error(w, http.StatusNotFound, "order not found")
+		return
+	}
+	response.Success(w, http.StatusOK, row)
+}
+
+func (h *PublicHandler) CancelOrder(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		response.Error(w, http.StatusBadRequest, "order id is required")
+		return
+	}
+	if !h.authorizeOrder(w, r, id) {
+		return
+	}
+	if err := h.platform.CancelOrder(r.Context(), id); err != nil {
+		switch {
+		case errors.Is(err, domain.ErrNotFound):
+			response.Error(w, http.StatusNotFound, err.Error())
+		case errors.Is(err, domain.ErrConflict):
+			response.Error(w, http.StatusConflict, err.Error())
+		default:
+			response.Error(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
 	row, ok, err := h.platform.GetOrder(r.Context(), id)
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, err.Error())
@@ -290,4 +428,27 @@ func (h *PublicHandler) DeleteWishlistItem(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	response.Success(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (h *PublicHandler) SubmitContactMessage(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name    string `json:"name"`
+		Phone   string `json:"phone"`
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.Error(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+
+	result, err := h.platform.SubmitContactMessage(r.Context(), body.Name, body.Phone, body.Message)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidInput) {
+			response.Error(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		response.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	response.Success(w, http.StatusCreated, result)
 }

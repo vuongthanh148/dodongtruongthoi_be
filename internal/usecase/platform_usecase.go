@@ -21,7 +21,7 @@ type CreateOrderItem struct {
 	SizeLabel       *string
 	SelectedAttrs   map[string]string
 	Quantity        int
-	UnitPrice       int64
+	UnitPrice       int64 // ignored: the server computes line prices; kept so old clients still decode
 	VariantImageURL *string
 }
 
@@ -55,12 +55,14 @@ type PlatformUsecase struct {
 	*ImageUsecase
 	*CategoryUsecase
 	*OrderUsecase
+	*OrderLookupUsecase
 	*CampaignUsecase
 	*ReviewUsecase
 	*BannerUsecase
 	*CustomerPhotoUsecase
 	*SettingsUsecase
 	*ContactUsecase
+	*ContactMessageUsecase
 	*WishlistUsecase
 }
 
@@ -75,9 +77,12 @@ type PlatformUsecaseConfig struct {
 	CampaignRepo      domain.CampaignRepository
 	ReviewRepo        domain.ReviewRepository
 	OrderRepo         domain.OrderRepository
+	LookupAttemptRepo domain.LookupAttemptRepository
+	LookupSessionRepo domain.LookupSessionRepository
 	WishlistRepo      domain.WishlistRepository
 	BannerRepo        domain.BannerRepository
 	ContactRepo       domain.ContactLinkRepository
+	ContactMessageRepo domain.ContactMessageRepository
 	AdminUserRepo     domain.AdminUserRepository
 	SettingsRepo      domain.SiteSettingsRepository
 	CustomerPhotoRepo domain.CustomerPhotoRepository
@@ -96,25 +101,29 @@ func NewPlatformUsecase(cfg PlatformUsecaseConfig) (*PlatformUsecase, error) {
 		cfg.ReviewRepo == nil || cfg.WishlistRepo == nil || cfg.BannerRepo == nil ||
 		cfg.ContactRepo == nil || cfg.AdminUserRepo == nil || cfg.SettingsRepo == nil ||
 		cfg.ProductImageRepo == nil || cfg.ProductSizeRepo == nil || cfg.ProductSKURepo == nil ||
-		cfg.CampaignRepo == nil || cfg.ImageRepo == nil {
+		cfg.CampaignRepo == nil || cfg.ImageRepo == nil || cfg.ContactMessageRepo == nil ||
+		cfg.LookupAttemptRepo == nil || cfg.LookupSessionRepo == nil {
 		return nil, errors.New("all repositories must be provided; in-memory fallback is not supported")
 	}
+
+	// Order pricing reads products through the same ProductUsecase the storefront uses.
+	productUsecase := NewProductUsecase(
+		cfg.ProductRepo,
+		cfg.ProductImageRepo,
+		cfg.ProductSizeRepo,
+		cfg.ProductSKURepo,
+		cfg.ReviewRepo,
+		cfg.CampaignRepo,
+		cfg.CategoryRepo,
+		cfg.ImageUploader,
+	)
 
 	return &PlatformUsecase{
 		AuthUsecase: NewAuthUsecase(
 			cfg.AdminUserRepo,
 			cfg.JWTSecret,
 		),
-		ProductUsecase: NewProductUsecase(
-			cfg.ProductRepo,
-			cfg.ProductImageRepo,
-			cfg.ProductSizeRepo,
-			cfg.ProductSKURepo,
-			cfg.ReviewRepo,
-			cfg.CampaignRepo,
-			cfg.CategoryRepo,
-			cfg.ImageUploader,
-		),
+		ProductUsecase: productUsecase,
 		ImageUsecase: NewImageUsecase(
 			cfg.ImageRepo,
 			cfg.ImageUploader,
@@ -124,7 +133,12 @@ func NewPlatformUsecase(cfg PlatformUsecaseConfig) (*PlatformUsecase, error) {
 		),
 		OrderUsecase: NewOrderUsecase(
 			cfg.OrderRepo,
-			cfg.ProductRepo,
+			productUsecase,
+		),
+		OrderLookupUsecase: NewOrderLookupUsecase(
+			cfg.OrderRepo,
+			cfg.LookupAttemptRepo,
+			cfg.LookupSessionRepo,
 		),
 		CampaignUsecase: NewCampaignUsecase(
 			cfg.CampaignRepo,
@@ -145,6 +159,9 @@ func NewPlatformUsecase(cfg PlatformUsecaseConfig) (*PlatformUsecase, error) {
 		),
 		ContactUsecase: NewContactUsecase(
 			cfg.ContactRepo,
+		),
+		ContactMessageUsecase: NewContactMessageUsecase(
+			cfg.ContactMessageRepo,
 		),
 		WishlistUsecase: NewWishlistUsecase(
 			cfg.WishlistRepo,

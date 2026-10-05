@@ -191,7 +191,14 @@ func (u *ProductUsecase) UpdateProduct(ctx context.Context, id string, updates d
 	if updates.Badge != nil && *updates.Badge != "" {
 		existing.Badge = updates.Badge
 	}
-	if updates.BasePrice > 0 {
+	// When SKUs exist their min price is the product's base price; ignore the incoming value.
+	skus, err := u.productSKURepo.ListByProduct(ctx, id)
+	if err != nil {
+		return domain.Product{}, err
+	}
+	if minPrice, hasSKUs := minSKUPrice(skus); hasSKUs {
+		existing.BasePrice = minPrice
+	} else if updates.BasePrice > 0 {
 		existing.BasePrice = updates.BasePrice
 	}
 	if updates.Description != nil && *updates.Description != "" {
@@ -331,7 +338,12 @@ func (u *ProductUsecase) buildProductPublic(ctx context.Context, p domain.Produc
 	price := p.BasePrice
 	var discountPrice *int64
 
-	if dp, ok, err := u.calculateDiscountPrice(ctx, p.ID, p.BasePrice); err == nil && ok {
+	rule, hasRule, err := u.activeCampaignDiscount(ctx, p.ID, p.BasePrice)
+	if err != nil {
+		return ProductPublic{}, err
+	}
+	if hasRule {
+		dp := rule.apply(p.BasePrice)
 		price = dp
 		discountPrice = &dp
 	}
@@ -366,16 +378,31 @@ func (u *ProductUsecase) buildProductPublic(ctx context.Context, p domain.Produc
 		skus = []domain.ProductSKU{}
 	}
 
-	// Override price with min SKU price when SKUs exist
-	if len(skus) > 0 {
-		minPrice := skus[0].Price
-		for _, s := range skus[1:] {
-			if s.Price < minPrice {
-				minPrice = s.Price
+	// Read the list price of the lowest SKU before any campaign rule is applied.
+	listMin, hasSKUMin := minSKUPrice(skus)
+
+	// The same campaign rule applies to every price the storefront reads.
+	if hasRule {
+		for i := range sizes {
+			if sizes[i].Price > 0 {
+				sizes[i].Price = rule.apply(sizes[i].Price)
 			}
 		}
-		price = minPrice
+		for i := range skus {
+			if skus[i].Price > 0 {
+				skus[i].Price = rule.apply(skus[i].Price)
+			}
+		}
+	}
+
+	// With SKUs, the list price is the lowest SKU price; a campaign sale price is applied on top of it.
+	if hasSKUMin {
+		price = listMin
 		discountPrice = nil
+		if hasRule {
+			sale := rule.apply(listMin)
+			discountPrice = &sale
+		}
 	}
 
 	rating, count := aggregateRating(reviews)
@@ -395,18 +422,78 @@ func (u *ProductUsecase) GetSKUs(ctx context.Context, productID string) ([]domai
 	return u.productSKURepo.ListByProduct(ctx, productID)
 }
 
+// SetSKUs replaces a product's SKUs and, when any are given, sets base_price to the min SKU price.
+// The SKU table and product table are separate repos, so this is two sequential writes, not one transaction.
 func (u *ProductUsecase) SetSKUs(ctx context.Context, productID string, skus []domain.ProductSKU) error {
-	return u.productSKURepo.SetByProduct(ctx, productID, skus)
+	product, ok, err := u.productRepo.Get(ctx, productID, true)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("%w: product not found", domain.ErrNotFound)
+	}
+
+	if err := u.productSKURepo.SetByProduct(ctx, productID, skus); err != nil {
+		return err
+	}
+
+	minPrice, hasSKUs := minSKUPrice(skus)
+	if !hasSKUs {
+		return nil
+	}
+	product.BasePrice = minPrice
+	_, err = u.productRepo.Update(ctx, productID, product)
+	return err
 }
 
-func (u *ProductUsecase) calculateDiscountPrice(ctx context.Context, productID string, basePrice int64) (int64, bool, error) {
+// minSKUPrice returns the lowest SKU price and whether there is at least one SKU.
+func minSKUPrice(skus []domain.ProductSKU) (int64, bool) {
+	if len(skus) == 0 {
+		return 0, false
+	}
+	minPrice := skus[0].Price
+	for _, s := range skus[1:] {
+		if s.Price < minPrice {
+			minPrice = s.Price
+		}
+	}
+	return minPrice, true
+}
+
+// campaignDiscount is one active campaign's discount rule.
+type campaignDiscount struct {
+	kind  string
+	value int64
+}
+
+// apply returns price after this discount, never below zero.
+func (d campaignDiscount) apply(price int64) int64 {
+	var out int64
+	switch d.kind {
+	case "percentage":
+		out = price - (price * d.value / 100)
+	case "fixed_amount":
+		out = price - d.value
+	default:
+		out = price
+	}
+	if out < 0 {
+		return 0
+	}
+	return out
+}
+
+// activeCampaignDiscount returns the active campaign rule that gives the lowest price
+// for basePrice. found is false when no active, in-window campaign includes the product.
+func (u *ProductUsecase) activeCampaignDiscount(ctx context.Context, productID string, basePrice int64) (campaignDiscount, bool, error) {
 	now := time.Now()
-	best := int64(0)
+	var best campaignDiscount
+	bestPrice := int64(0)
 	found := false
 
 	campaigns, err := u.campaignRepo.List(ctx, true)
 	if err != nil {
-		return 0, false, err
+		return campaignDiscount{}, false, err
 	}
 
 	for _, campaign := range campaigns {
@@ -419,32 +506,25 @@ func (u *ProductUsecase) calculateDiscountPrice(ctx context.Context, productID s
 
 		productIDs, err := u.campaignRepo.GetProductIDs(ctx, campaign.ID)
 		if err != nil {
-			return 0, false, err
+			return campaignDiscount{}, false, err
 		}
 
-		found := false
+		inCampaign := false
 		for _, pid := range productIDs {
 			if pid == productID {
-				found = true
+				inCampaign = true
 				break
 			}
 		}
-		if !found {
+		if !inCampaign {
 			continue
 		}
 
-		candidate := basePrice
-		switch campaign.DiscountType {
-		case "percentage":
-			candidate = basePrice - (basePrice * campaign.DiscountValue / 100)
-		case "fixed_amount":
-			candidate = basePrice - campaign.DiscountValue
-		}
-		if candidate < 0 {
-			candidate = 0
-		}
-		if !found || candidate < best {
-			best = candidate
+		rule := campaignDiscount{kind: campaign.DiscountType, value: campaign.DiscountValue}
+		candidate := rule.apply(basePrice)
+		if !found || candidate < bestPrice {
+			best = rule
+			bestPrice = candidate
 			found = true
 		}
 	}

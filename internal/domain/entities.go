@@ -146,6 +146,9 @@ type Order struct {
 	Items        []OrderItem `json:"items"`
 	CreatedAt    time.Time   `json:"created_at"`
 	UpdatedAt    time.Time   `json:"updated_at"`
+	// LookupCode is the per-order code the buyer uses to verify ownership. It is
+	// never serialized; only the create response returns it, explicitly.
+	LookupCode string `json:"-"`
 }
 
 type OrderItem struct {
@@ -185,5 +188,32 @@ type CustomerPhoto struct {
 	Caption   *string   `json:"caption,omitempty"`
 	SortOrder int       `json:"sort_order"`
 	IsActive  bool      `json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// ContactMessage is a message submitted through the public contact form.
+type ContactMessage struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Phone     string    `json:"phone"`
+	Message   string    `json:"message"`
+	Handled   bool      `json:"handled"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// LookupAttempt tracks failed order-lookup code attempts for one phone.
+type LookupAttempt struct {
+	Phone       string     `json:"phone"`
+	FailedCount int        `json:"failed_count"`
+	LockedUntil *time.Time `json:"locked_until,omitempty"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+// LookupSession is a verified order-lookup session bound to one order. TokenHash is the SHA-256 of the bearer token.
+type LookupSession struct {
+	TokenHash string    `json:"-"`
+	Phone     string    `json:"phone"`
+	OrderID   string    `json:"order_id"`
+	ExpiresAt time.Time `json:"expires_at"`
 	CreatedAt time.Time `json:"created_at"`
 }

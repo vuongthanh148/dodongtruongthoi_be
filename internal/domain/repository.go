@@ -1,6 +1,9 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // CategoryRepository defines all category data operations
 type CategoryRepository interface {
@@ -81,6 +84,9 @@ type OrderRepository interface {
 	Get(ctx context.Context, id string) (Order, bool, error)
 	Create(ctx context.Context, ord Order) (Order, error)
 	UpdateStatus(ctx context.Context, id string, status string, adminNote *string) error
+	// TransitionStatus sets status to `to` only if the current status is one of `from`.
+	// It reports whether a row changed, so callers can detect a concurrent status change.
+	TransitionStatus(ctx context.Context, id string, from []string, to string) (bool, error)
 	AddItem(ctx context.Context, item OrderItem) (OrderItem, error)
 	GetItems(ctx context.Context, orderID string) ([]OrderItem, error)
 }
@@ -135,4 +141,32 @@ type CustomerPhotoRepository interface {
 	Create(ctx context.Context, p CustomerPhoto) (CustomerPhoto, error)
 	Update(ctx context.Context, id string, p CustomerPhoto) (CustomerPhoto, error)
 	Delete(ctx context.Context, id string) error
+}
+
+// ContactMessageRepository defines contact message data operations
+type ContactMessageRepository interface {
+	Create(ctx context.Context, m ContactMessage) (ContactMessage, error)
+	// List returns messages newest first; handled nil means no filter.
+	List(ctx context.Context, handled *bool) ([]ContactMessage, error)
+	// SetHandled returns domain.ErrNotFound when the id does not exist.
+	SetHandled(ctx context.Context, id string, handled bool) (ContactMessage, error)
+}
+
+// LookupAttemptRepository tracks failed order-lookup code attempts per phone.
+type LookupAttemptRepository interface {
+	// Get returns the attempt row for phone; ok is false when none exists.
+	Get(ctx context.Context, phone string) (LookupAttempt, bool, error)
+	// IncrementFailed adds one failure (creating the row if needed) and returns the new count.
+	IncrementFailed(ctx context.Context, phone string) (int, error)
+	// Lock sets locked_until and resets the failure count.
+	Lock(ctx context.Context, phone string, until time.Time) error
+	// Reset clears the failure count and any lock.
+	Reset(ctx context.Context, phone string) error
+}
+
+// LookupSessionRepository stores hashed order-lookup session tokens.
+type LookupSessionRepository interface {
+	Create(ctx context.Context, s LookupSession) error
+	// Get returns the session for tokenHash; ok is false when none exists.
+	Get(ctx context.Context, tokenHash string) (LookupSession, bool, error)
 }

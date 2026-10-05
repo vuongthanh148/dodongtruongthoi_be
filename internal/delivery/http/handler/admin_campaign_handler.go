@@ -29,6 +29,7 @@ func (h *AdminHandler) CreateCampaign(w http.ResponseWriter, r *http.Request) {
 		DiscountValue int64  `json:"discount_value"`
 		StartsAt      string `json:"starts_at"`
 		EndsAt        string `json:"ends_at"`
+		IsActive      bool   `json:"is_active"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		response.Error(w, http.StatusBadRequest, "invalid body")
@@ -54,6 +55,7 @@ func (h *AdminHandler) CreateCampaign(w http.ResponseWriter, r *http.Request) {
 		DiscountValue: body.DiscountValue,
 		StartsAt:      startsAt,
 		EndsAt:        endsAt,
+		IsActive:      body.IsActive,
 	}
 
 	result, err := h.platform.CreateCampaign(r.Context(), campaign)

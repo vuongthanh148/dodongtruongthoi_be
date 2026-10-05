@@ -28,3 +28,13 @@ if err := json.NewEncoder(w).Encode(payload); err != nil {
 http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 }
 }
+
+// ErrorData writes an error envelope that also carries structured data
+// (for example remaining_attempts or locked_until).
+func ErrorData(w http.ResponseWriter, status int, message string, data any) {
+	writeJSON(w, status, envelope{
+		"success": false,
+		"message": message,
+		"data":    data,
+	})
+}

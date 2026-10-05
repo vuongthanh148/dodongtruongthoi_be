@@ -6,6 +6,26 @@ import (
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/domain"
 )
 
+// validThemeIDs must match the theme ids the storefront knows (frontend src/lib/themes.ts).
+var validThemeIDs = map[string]bool{
+	"default":      true,
+	"tet":          true,
+	"independence": true,
+	"labor-day":    true,
+}
+
+type unknownThemeError struct {
+	theme string
+}
+
+func (e unknownThemeError) Error() string {
+	return "unknown theme: " + e.theme
+}
+
+func (e unknownThemeError) Unwrap() error {
+	return domain.ErrInvalidInput
+}
+
 type SettingsUsecase struct {
 	settingsRepo domain.SiteSettingsRepository
 }
@@ -25,6 +45,9 @@ func (u *SettingsUsecase) GetAdminSettings(ctx context.Context) (map[string]stri
 }
 
 func (u *SettingsUsecase) UpdateSettings(ctx context.Context, in map[string]string) (map[string]string, error) {
+	if theme, ok := in["active_theme"]; ok && !validThemeIDs[theme] {
+		return nil, unknownThemeError{theme: theme}
+	}
 	if err := u.settingsRepo.SetBulk(ctx, in); err != nil {
 		return nil, err
 	}

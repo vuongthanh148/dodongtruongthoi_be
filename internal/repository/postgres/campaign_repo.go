@@ -88,17 +88,17 @@ func (r *CampaignRepository) Update(ctx context.Context, id string, c domain.Cam
 		description = $3,
 		discount_type = COALESCE(NULLIF($4, ''), discount_type),
 		discount_value = CASE WHEN $5 > 0 THEN $5 ELSE discount_value END,
-		starts_at = CASE WHEN $6 IS NOT NULL THEN $6 ELSE starts_at END,
-		ends_at = CASE WHEN $7 IS NOT NULL THEN $7 ELSE ends_at END,
+		starts_at = CASE WHEN $6::timestamptz IS NOT NULL THEN $6::timestamptz ELSE starts_at END,
+		ends_at = CASE WHEN $7::timestamptz IS NOT NULL THEN $7::timestamptz ELSE ends_at END,
 		is_active = $8,
 		updated_at = now()
-	WHERE id = $9
+	WHERE id = $1
 	RETURNING id, name, description, discount_type, discount_value, starts_at, ends_at, is_active, created_at, updated_at`
 
 	var result domain.Campaign
 	err := r.pool.QueryRow(ctx, query,
 		id, c.Name, c.Description, c.DiscountType, c.DiscountValue,
-		c.StartsAt, c.EndsAt, c.IsActive, id,
+		c.StartsAt, c.EndsAt, c.IsActive,
 	).Scan(
 		&result.ID, &result.Name, &result.Description, &result.DiscountType, &result.DiscountValue,
 		&result.StartsAt, &result.EndsAt, &result.IsActive, &result.CreatedAt, &result.UpdatedAt,
