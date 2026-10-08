@@ -113,13 +113,13 @@ type Review struct {
 }
 
 type Banner struct {
-	ID        string `json:"id"`
-	Title     *string `json:"title,omitempty"`
-	Subtitle  *string `json:"subtitle,omitempty"`
-	ImageURL  *string `json:"image_url,omitempty"`
-	LinkURL   *string `json:"link_url,omitempty"`
-	SortOrder int    `json:"sort_order"`
-	IsActive  bool   `json:"is_active"`
+	ID        string    `json:"id"`
+	Title     *string   `json:"title,omitempty"`
+	Subtitle  *string   `json:"subtitle,omitempty"`
+	ImageURL  *string   `json:"image_url,omitempty"`
+	LinkURL   *string   `json:"link_url,omitempty"`
+	SortOrder int       `json:"sort_order"`
+	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -135,17 +135,18 @@ type ContactLink struct {
 }
 
 type Order struct {
-	ID           string      `json:"id"`
-	Phone        string      `json:"phone"`
-	CustomerName *string     `json:"customer_name,omitempty"`
-	Address      *string     `json:"address,omitempty"`
-	Note         *string     `json:"note,omitempty"`
-	Status       string      `json:"status"`
-	AdminNote    *string     `json:"admin_note,omitempty"`
-	TotalAmount  int64       `json:"total_amount"`
-	Items        []OrderItem `json:"items"`
-	CreatedAt    time.Time   `json:"created_at"`
-	UpdatedAt    time.Time   `json:"updated_at"`
+	ID            string      `json:"id"`
+	Phone         string      `json:"phone"`
+	CustomerName  *string     `json:"customer_name,omitempty"`
+	Address       *string     `json:"address,omitempty"`
+	Note          *string     `json:"note,omitempty"`
+	Status        string      `json:"status"`
+	AdminNote     *string     `json:"admin_note,omitempty"`
+	PaymentMethod *string     `json:"payment_method,omitempty"`
+	TotalAmount   int64       `json:"total_amount"`
+	Items         []OrderItem `json:"items"`
+	CreatedAt     time.Time   `json:"created_at"`
+	UpdatedAt     time.Time   `json:"updated_at"`
 	// LookupCode is the per-order code the buyer uses to verify ownership. It is
 	// never serialized; only the create response returns it, explicitly.
 	LookupCode string `json:"-"`
@@ -173,12 +174,12 @@ type WishlistItem struct {
 }
 
 type AdminUser struct {
-	ID           string    `json:"id"`
-	Username     string    `json:"username"`
-	PasswordHash string    `json:"-"`
-	DisplayName  *string   `json:"display_name,omitempty"`
-	IsActive     bool      `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID           string     `json:"id"`
+	Username     string     `json:"username"`
+	PasswordHash string     `json:"-"`
+	DisplayName  *string    `json:"display_name,omitempty"`
+	IsActive     bool       `json:"is_active"`
+	CreatedAt    time.Time  `json:"created_at"`
 	LastLoginAt  *time.Time `json:"last_login_at,omitempty"`
 }
 
@@ -216,4 +217,16 @@ type LookupSession struct {
 	OrderID   string    `json:"order_id"`
 	ExpiresAt time.Time `json:"expires_at"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// AuditLog tracks admin actions (order status changes, product updates, campaign changes, etc.)
+type AuditLog struct {
+	ID         string      `json:"id"`
+	EntityType string      `json:"entity_type"` // "order", "product", "campaign"
+	EntityID   string      `json:"entity_id"`
+	Action     string      `json:"action"` // "status_change", "update", "create"
+	Actor      string      `json:"actor"`  // admin username
+	Before     interface{} `json:"before,omitempty"`
+	After      interface{} `json:"after,omitempty"`
+	CreatedAt  time.Time   `json:"created_at"`
 }

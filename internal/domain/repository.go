@@ -170,3 +170,10 @@ type LookupSessionRepository interface {
 	// Get returns the session for tokenHash; ok is false when none exists.
 	Get(ctx context.Context, tokenHash string) (LookupSession, bool, error)
 }
+
+// AuditLogRepository defines audit log data operations
+type AuditLogRepository interface {
+	Create(ctx context.Context, entry AuditLog) error
+	// List returns audit logs newest first, with optional entityType filter
+	List(ctx context.Context, limit int, offset int, entityType *string) ([]AuditLog, error)
+}

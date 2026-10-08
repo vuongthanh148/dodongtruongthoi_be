@@ -97,17 +97,18 @@ func (u *OrderUsecase) CreateOrder(ctx context.Context, req CreateOrderRequest) 
 	}
 
 	order := domain.Order{
-		ID:           orderID,
-		Phone:        phone,
-		CustomerName: req.CustomerName,
-		Address:      req.Address,
-		Note:         req.Note,
-		Status:       "pending_confirm",
-		TotalAmount:  total,
-		Items:        items,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-		LookupCode:   lookupCode,
+		ID:            orderID,
+		Phone:         phone,
+		CustomerName:  req.CustomerName,
+		Address:       req.Address,
+		Note:          req.Note,
+		Status:        "pending_confirm",
+		PaymentMethod: req.PaymentMethod,
+		TotalAmount:   total,
+		Items:         items,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		LookupCode:    lookupCode,
 	}
 	return u.orderRepo.Create(ctx, order)
 }

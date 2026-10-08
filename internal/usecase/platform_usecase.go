@@ -8,11 +8,12 @@ import (
 )
 
 type CreateOrderRequest struct {
-	Phone        string
-	CustomerName *string
-	Address      *string
-	Note         *string
-	Items        []CreateOrderItem
+	Phone         string
+	CustomerName  *string
+	Address       *string
+	Note          *string
+	PaymentMethod *string
+	Items         []CreateOrderItem
 }
 
 type CreateOrderItem struct {
@@ -34,6 +35,7 @@ type ProductPublic struct {
 	domain.Product
 	Price         int64                 `json:"price"`
 	DiscountPrice *int64                `json:"discount_price,omitempty"`
+	CampaignID    *string               `json:"campaign_id,omitempty"`
 	Sizes         []domain.ProductSize  `json:"sizes"`
 	SKUs          []domain.ProductSKU   `json:"skus"`
 	Images        []domain.ProductImage `json:"images"`
@@ -64,29 +66,31 @@ type PlatformUsecase struct {
 	*ContactUsecase
 	*ContactMessageUsecase
 	*WishlistUsecase
+	*AuditLogUsecase
 }
 
 type PlatformUsecaseConfig struct {
-	JWTSecret         string
-	CategoryRepo      domain.CategoryRepository
-	ProductRepo       domain.ProductRepository
-	ProductImageRepo  domain.ProductImageRepository
-	ProductSizeRepo   domain.ProductSizeRepository
-	ProductSKURepo    domain.ProductSKURepository
-	ImageRepo         domain.ImageRepository
-	CampaignRepo      domain.CampaignRepository
-	ReviewRepo        domain.ReviewRepository
-	OrderRepo         domain.OrderRepository
-	LookupAttemptRepo domain.LookupAttemptRepository
-	LookupSessionRepo domain.LookupSessionRepository
-	WishlistRepo      domain.WishlistRepository
-	BannerRepo        domain.BannerRepository
-	ContactRepo       domain.ContactLinkRepository
+	JWTSecret          string
+	CategoryRepo       domain.CategoryRepository
+	ProductRepo        domain.ProductRepository
+	ProductImageRepo   domain.ProductImageRepository
+	ProductSizeRepo    domain.ProductSizeRepository
+	ProductSKURepo     domain.ProductSKURepository
+	ImageRepo          domain.ImageRepository
+	CampaignRepo       domain.CampaignRepository
+	ReviewRepo         domain.ReviewRepository
+	OrderRepo          domain.OrderRepository
+	LookupAttemptRepo  domain.LookupAttemptRepository
+	LookupSessionRepo  domain.LookupSessionRepository
+	WishlistRepo       domain.WishlistRepository
+	BannerRepo         domain.BannerRepository
+	ContactRepo        domain.ContactLinkRepository
 	ContactMessageRepo domain.ContactMessageRepository
-	AdminUserRepo     domain.AdminUserRepository
-	SettingsRepo      domain.SiteSettingsRepository
-	CustomerPhotoRepo domain.CustomerPhotoRepository
-	ImageUploader     ImageUploader
+	AdminUserRepo      domain.AdminUserRepository
+	SettingsRepo       domain.SiteSettingsRepository
+	CustomerPhotoRepo  domain.CustomerPhotoRepository
+	AuditLogRepo       domain.AuditLogRepository
+	ImageUploader      ImageUploader
 }
 
 // NewPlatformUsecase creates a usecase that uses PostgreSQL repositories exclusively
@@ -102,7 +106,7 @@ func NewPlatformUsecase(cfg PlatformUsecaseConfig) (*PlatformUsecase, error) {
 		cfg.ContactRepo == nil || cfg.AdminUserRepo == nil || cfg.SettingsRepo == nil ||
 		cfg.ProductImageRepo == nil || cfg.ProductSizeRepo == nil || cfg.ProductSKURepo == nil ||
 		cfg.CampaignRepo == nil || cfg.ImageRepo == nil || cfg.ContactMessageRepo == nil ||
-		cfg.LookupAttemptRepo == nil || cfg.LookupSessionRepo == nil {
+		cfg.LookupAttemptRepo == nil || cfg.LookupSessionRepo == nil || cfg.AuditLogRepo == nil {
 		return nil, errors.New("all repositories must be provided; in-memory fallback is not supported")
 	}
 
@@ -165,6 +169,9 @@ func NewPlatformUsecase(cfg PlatformUsecaseConfig) (*PlatformUsecase, error) {
 		),
 		WishlistUsecase: NewWishlistUsecase(
 			cfg.WishlistRepo,
+		),
+		AuditLogUsecase: NewAuditLogUsecase(
+			cfg.AuditLogRepo,
 		),
 	}, nil
 }

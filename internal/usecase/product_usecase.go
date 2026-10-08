@@ -405,11 +405,18 @@ func (u *ProductUsecase) buildProductPublic(ctx context.Context, p domain.Produc
 		}
 	}
 
+	var campaignID *string
+	if hasRule {
+		id := rule.id
+		campaignID = &id
+	}
+
 	rating, count := aggregateRating(reviews)
 	return ProductPublic{
 		Product:       p,
 		Price:         price,
 		DiscountPrice: discountPrice,
+		CampaignID:    campaignID,
 		Sizes:         sizes,
 		SKUs:          skus,
 		Images:        images,
@@ -462,6 +469,7 @@ func minSKUPrice(skus []domain.ProductSKU) (int64, bool) {
 
 // campaignDiscount is one active campaign's discount rule.
 type campaignDiscount struct {
+	id    string
 	kind  string
 	value int64
 }
@@ -520,7 +528,7 @@ func (u *ProductUsecase) activeCampaignDiscount(ctx context.Context, productID s
 			continue
 		}
 
-		rule := campaignDiscount{kind: campaign.DiscountType, value: campaign.DiscountValue}
+		rule := campaignDiscount{id: campaign.ID, kind: campaign.DiscountType, value: campaign.DiscountValue}
 		candidate := rule.apply(basePrice)
 		if !found || candidate < bestPrice {
 			best = rule

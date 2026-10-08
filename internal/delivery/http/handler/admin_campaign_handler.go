@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	authmiddleware "github.com/vuongthanh148/dodongtruongthoi_be/internal/delivery/http/middleware"
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/domain"
 	"github.com/vuongthanh148/dodongtruongthoi_be/pkg/response"
 )
@@ -63,6 +64,18 @@ func (h *AdminHandler) CreateCampaign(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	// Record audit entry
+	actor := authmiddleware.GetAdminUsername(r)
+	auditAfter := map[string]interface{}{
+		"discount_type":  result.DiscountType,
+		"discount_value": result.DiscountValue,
+		"is_active":      result.IsActive,
+		"starts_at":      result.StartsAt,
+		"ends_at":        result.EndsAt,
+	}
+	h.platform.RecordEntry(r.Context(), "campaign", result.ID, "create", actor, nil, auditAfter)
+
 	response.Success(w, http.StatusCreated, result)
 }
 
@@ -113,6 +126,18 @@ func (h *AdminHandler) UpdateCampaign(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	// Record audit entry
+	actor := authmiddleware.GetAdminUsername(r)
+	auditAfter := map[string]interface{}{
+		"discount_type":  result.DiscountType,
+		"discount_value": result.DiscountValue,
+		"is_active":      result.IsActive,
+		"starts_at":      result.StartsAt,
+		"ends_at":        result.EndsAt,
+	}
+	h.platform.RecordEntry(r.Context(), "campaign", id, "update", actor, nil, auditAfter)
+
 	response.Success(w, http.StatusOK, result)
 }
 

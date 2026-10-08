@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	authmiddleware "github.com/vuongthanh148/dodongtruongthoi_be/internal/delivery/http/middleware"
 	"github.com/vuongthanh148/dodongtruongthoi_be/pkg/response"
 )
 
@@ -57,11 +58,34 @@ func (h *AdminHandler) UpdateOrderStatus(w http.ResponseWriter, r *http.Request)
 		response.Error(w, http.StatusBadRequest, "status is required")
 		return
 	}
-	err := h.platform.UpdateOrderStatus(r.Context(), id, body.Status, body.AdminNote)
+
+	// Get old order to record audit entry
+	oldOrder, _, err := h.platform.GetOrder(r.Context(), id)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	err = h.platform.UpdateOrderStatus(r.Context(), id, body.Status, body.AdminNote)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	// Record audit entry
+	actor := authmiddleware.GetAdminUsername(r)
+	auditBefore := map[string]interface{}{
+		"status": oldOrder.Status,
+	}
+	if oldOrder.AdminNote != nil {
+		auditBefore["admin_note"] = *oldOrder.AdminNote
+	}
+	auditAfter := map[string]interface{}{
+		"status":     body.Status,
+		"admin_note": body.AdminNote,
+	}
+	h.platform.RecordEntry(r.Context(), "order", id, "status_change", actor, auditBefore, auditAfter)
+
 	// Return updated order
 	order, _, err := h.platform.GetOrder(r.Context(), id)
 	if err != nil {

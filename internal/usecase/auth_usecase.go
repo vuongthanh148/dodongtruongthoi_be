@@ -81,6 +81,10 @@ func (u *AuthUsecase) VerifyToken(ctx context.Context, token string) error {
 	return err
 }
 
+func (u *AuthUsecase) VerifyTokenAndGetUsername(ctx context.Context, token string) (string, error) {
+	return u.verifyTokenByType(ctx, token, "access")
+}
+
 func (u *AuthUsecase) verifyTokenByType(ctx context.Context, token, expectedType string) (string, error) {
 	parts := strings.Split(token, ".")
 	if len(parts) != 2 {

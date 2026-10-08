@@ -90,3 +90,33 @@ func TestUpdateSettings_ActiveTheme(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateSettings_BankFields(t *testing.T) {
+	tests := []struct {
+		name string
+		in   map[string]string
+	}{
+		{name: "bank_name", in: map[string]string{"bank_name": "Vietcombank"}},
+		{name: "bank_account_name", in: map[string]string{"bank_account_name": "CONG TY TNHH DO DONG TRUONG THOI"}},
+		{name: "bank_account_number", in: map[string]string{"bank_account_number": "1234567890"}},
+		{name: "all three bank fields", in: map[string]string{"bank_name": "Vietcombank", "bank_account_name": "CONG TY TNHH DO DONG TRUONG THOI", "bank_account_number": "1234567890"}},
+		{name: "empty bank fields allowed", in: map[string]string{"bank_name": "", "bank_account_name": "", "bank_account_number": ""}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := newFakeSettingsRepo()
+			u := NewSettingsUsecase(repo)
+
+			result, err := u.UpdateSettings(context.Background(), tt.in)
+			if err != nil {
+				t.Fatalf("UpdateSettings(%v) returned error: %v", tt.in, err)
+			}
+			for k, v := range tt.in {
+				if result[k] != v {
+					t.Errorf("result[%q] = %q, want %q", k, result[k], v)
+				}
+			}
+		})
+	}
+}

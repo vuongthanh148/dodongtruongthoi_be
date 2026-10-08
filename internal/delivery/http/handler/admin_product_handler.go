@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	authmiddleware "github.com/vuongthanh148/dodongtruongthoi_be/internal/delivery/http/middleware"
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/domain"
 	"github.com/vuongthanh148/dodongtruongthoi_be/pkg/response"
 )
@@ -132,6 +133,13 @@ func (h *AdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get old product to record audit entry
+	oldProduct, _, err := h.platform.GetProduct(r.Context(), id, true)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	updates := domain.Product{
 		Title:          body.Title,
 		Subtitle:       ptrIfNotEmpty(body.Subtitle),
@@ -155,6 +163,21 @@ func (h *AdminHandler) UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	// Record audit entry only if base_price or is_active changed
+	if oldProduct.BasePrice != body.BasePrice || (body.IsActive != nil && oldProduct.IsActive != *body.IsActive) {
+		actor := authmiddleware.GetAdminUsername(r)
+		auditBefore := map[string]interface{}{
+			"base_price": oldProduct.BasePrice,
+			"is_active":  oldProduct.IsActive,
+		}
+		auditAfter := map[string]interface{}{
+			"base_price": body.BasePrice,
+			"is_active":  result.IsActive,
+		}
+		h.platform.RecordEntry(r.Context(), "product", id, "update", actor, auditBefore, auditAfter)
+	}
+
 	response.Success(w, http.StatusOK, result)
 }
 

@@ -168,11 +168,12 @@ func (h *PublicHandler) GetSettings(w http.ResponseWriter, r *http.Request) {
 
 func (h *PublicHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Phone        string `json:"phone"`
-		CustomerName string `json:"customerName"`
-		Address      string `json:"address"`
-		Note         string `json:"note"`
-		Items        []struct {
+		Phone         string `json:"phone"`
+		CustomerName  string `json:"customerName"`
+		Address       string `json:"address"`
+		Note          string `json:"note"`
+		PaymentMethod string `json:"paymentMethod"`
+		Items         []struct {
 			ProductID       string            `json:"productId"`
 			SizeCode        string            `json:"sizeCode"`
 			SizeLabel       string            `json:"sizeLabel"`
@@ -202,11 +203,12 @@ func (h *PublicHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	order, err := h.platform.CreateOrder(r.Context(), usecase.CreateOrderRequest{
-		Phone:        body.Phone,
-		CustomerName: ptrIfNotEmpty(body.CustomerName),
-		Address:      ptrIfNotEmpty(body.Address),
-		Note:         ptrIfNotEmpty(body.Note),
-		Items:        items,
+		Phone:         body.Phone,
+		CustomerName:  ptrIfNotEmpty(body.CustomerName),
+		Address:       ptrIfNotEmpty(body.Address),
+		Note:          ptrIfNotEmpty(body.Note),
+		PaymentMethod: ptrIfNotEmpty(body.PaymentMethod),
+		Items:         items,
 	})
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, err.Error())

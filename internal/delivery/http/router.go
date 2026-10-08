@@ -60,6 +60,11 @@ func NewRouter(
 	r.Use(middleware.Logger)
 	r.Use(middleware.Timeout(30 * time.Second))
 
+	// Per-IP rate limiters for public endpoints (10 req/min per route).
+	ordersLimiter := authmiddleware.NewRateLimiter(10, time.Minute)
+	ordersVerifyLimiter := authmiddleware.NewRateLimiter(10, time.Minute)
+	contactMessagesLimiter := authmiddleware.NewRateLimiter(10, time.Minute)
+
 	r.Get("/health", healthHandler.GetHealth)
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", healthHandler.GetHealth)
@@ -78,11 +83,11 @@ func NewRouter(
 		r.Get("/contacts", publicHandler.ListContacts)
 		r.Get("/settings", publicHandler.GetSettings)
 
-		r.Post("/contacts/messages", publicHandler.SubmitContactMessage)
+		r.With(contactMessagesLimiter.Middleware()).Post("/contacts/messages", publicHandler.SubmitContactMessage)
 
-		r.Post("/orders", publicHandler.CreateOrder)
+		r.With(ordersLimiter.Middleware()).Post("/orders", publicHandler.CreateOrder)
 		r.Get("/orders", publicHandler.ListOrdersByPhone)
-		r.Post("/orders/verify", publicHandler.VerifyOrder)
+		r.With(ordersVerifyLimiter.Middleware()).Post("/orders/verify", publicHandler.VerifyOrder)
 		r.Get("/orders/{id}", publicHandler.GetOrder)
 		r.Post("/orders/{id}/cancel", publicHandler.CancelOrder)
 
@@ -145,6 +150,8 @@ func NewRouter(
 
 				r.Get("/contact-messages", adminHandler.ListContactMessages)
 				r.Put("/contact-messages/{id}", adminHandler.SetContactMessageHandled)
+
+				r.Get("/audit-log", adminHandler.ListAuditLogs)
 
 				r.Get("/orders", adminHandler.ListOrders)
 				r.Get("/orders/{id}", adminHandler.GetOrder)
