@@ -5,19 +5,19 @@
 -- so re-running this migration never overwrites an image an admin set later.
 
 UPDATE categories SET image_url = 'https://images.unsplash.com/photo-1638517317391-af4c18e4c96a?w=1200&h=800&fit=crop&q=80'
-  WHERE id = 'tranh-dong' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
+  WHERE slug = 'tranh-dong' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
 UPDATE categories SET image_url = 'https://images.unsplash.com/photo-1684871430772-569936b1a0ae?w=1200&h=800&fit=crop&q=80'
-  WHERE id = 'tranh-phong-thuy' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
+  WHERE slug = 'tranh-phong-thuy' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
 UPDATE categories SET image_url = 'https://images.unsplash.com/photo-1612704057720-e8f66bade6ca?w=1200&h=800&fit=crop&q=80'
-  WHERE id = 'dinh-dong-tho-cung' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
+  WHERE slug = 'dinh-dong-tho-cung' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
 UPDATE categories SET image_url = 'https://images.unsplash.com/photo-1651085410796-e663860b2b08?w=1200&h=800&fit=crop&q=80'
-  WHERE id = 'tuong-dong-trang-tri' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
+  WHERE slug = 'tuong-dong-trang-tri' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
 UPDATE categories SET image_url = 'https://images.unsplash.com/photo-1541508223081-3f8cd5cc0f4c?w=1200&h=800&fit=crop&q=80'
-  WHERE id = 'do-dung-nha-bep' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
+  WHERE slug = 'do-dung-nha-bep' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
 UPDATE categories SET image_url = 'https://images.unsplash.com/photo-1771795639001-a084a0d1045e?w=1200&h=800&fit=crop&q=80'
-  WHERE id = 'phu-kien-trang-tri' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
+  WHERE slug = 'phu-kien-trang-tri' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
 UPDATE categories SET image_url = 'https://images.unsplash.com/photo-1689259103820-a375e5a30e00?w=1200&h=800&fit=crop&q=80'
-  WHERE id = 'tranh-phong-canh-122507' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
+  WHERE slug = 'tranh-phong-canh-122507' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
 
 UPDATE banners SET image_url = 'https://plus.unsplash.com/premium_photo-1671749088116-943334aaad48?w=1600&h=900&fit=crop&q=80'
   WHERE id = 'eca9d5a8-def8-421a-a04e-97dcb805a959' AND (image_url IS NULL OR image_url LIKE '%picsum.photos%');
