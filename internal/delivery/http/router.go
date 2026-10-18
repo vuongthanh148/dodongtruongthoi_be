@@ -62,6 +62,7 @@ func NewRouter(
 
 	// Per-IP rate limiters for public endpoints (10 req/min per route).
 	ordersLimiter := authmiddleware.NewRateLimiter(10, time.Minute)
+	ordersListLimiter := authmiddleware.NewRateLimiter(10, time.Minute)
 	ordersVerifyLimiter := authmiddleware.NewRateLimiter(10, time.Minute)
 	contactMessagesLimiter := authmiddleware.NewRateLimiter(10, time.Minute)
 
@@ -86,7 +87,7 @@ func NewRouter(
 		r.With(contactMessagesLimiter.Middleware()).Post("/contacts/messages", publicHandler.SubmitContactMessage)
 
 		r.With(ordersLimiter.Middleware()).Post("/orders", publicHandler.CreateOrder)
-		r.Get("/orders", publicHandler.ListOrdersByPhone)
+		r.With(ordersListLimiter.Middleware()).Get("/orders", publicHandler.ListOrdersByPhone)
 		r.With(ordersVerifyLimiter.Middleware()).Post("/orders/verify", publicHandler.VerifyOrder)
 		r.Get("/orders/{id}", publicHandler.GetOrder)
 		r.Post("/orders/{id}/cancel", publicHandler.CancelOrder)

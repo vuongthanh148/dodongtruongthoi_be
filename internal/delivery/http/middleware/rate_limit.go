@@ -40,6 +40,12 @@ func (rl *RateLimiter) Middleware() func(http.Handler) http.Handler {
 	}
 }
 
+// Allow checks and records a request against an arbitrary key (e.g. a phone
+// number), for handlers that need a second limit dimension beyond per-IP.
+func (rl *RateLimiter) Allow(key string) bool {
+	return rl.allowRequest(key)
+}
+
 // allowRequest checks if the IP has remaining quota. It removes stale entries and
 // returns true if the request is allowed (count < limit), false otherwise.
 func (rl *RateLimiter) allowRequest(ip string) bool {

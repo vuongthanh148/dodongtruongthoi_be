@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vuongthanh148/dodongtruongthoi_be/internal/delivery/http/middleware"
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/domain"
 	"github.com/vuongthanh148/dodongtruongthoi_be/internal/usecase"
 	"github.com/vuongthanh148/dodongtruongthoi_be/pkg/response"
@@ -17,10 +18,18 @@ import (
 
 type PublicHandler struct {
 	platform *usecase.PlatformUsecase
+
+	// ordersByPhoneLimiter caps GET /orders?phone= per phone number, on top of
+	// the router's per-IP limiter on the same route (HANDOFF.md: "Rate-limit
+	// per phone and per IP").
+	ordersByPhoneLimiter *middleware.RateLimiter
 }
 
 func NewPublicHandler(platform *usecase.PlatformUsecase) *PublicHandler {
-	return &PublicHandler{platform: platform}
+	return &PublicHandler{
+		platform:             platform,
+		ordersByPhoneLimiter: middleware.NewRateLimiter(10, time.Minute),
+	}
 }
 
 func (h *PublicHandler) ListCategories(w http.ResponseWriter, r *http.Request) {
@@ -234,6 +243,10 @@ func (h *PublicHandler) ListOrdersByPhone(w http.ResponseWriter, r *http.Request
 		response.Error(w, http.StatusBadRequest, "phone is required")
 		return
 	}
+	if !h.ordersByPhoneLimiter.Allow(phone) {
+		response.Error(w, http.StatusTooManyRequests, "too many requests, try again later")
+		return
+	}
 	result, err := h.platform.ListOrdersByPhone(r.Context(), phone)
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, err.Error())
@@ -247,13 +260,13 @@ func (h *PublicHandler) ListOrdersByPhone(w http.ResponseWriter, r *http.Request
 }
 
 // orderSummary is the list view of an order. It omits customer details, the
-// delivery address, notes and unit prices; those are only returned by GetOrder.
+// delivery address, notes, unit prices, and the order total; those are only
+// returned by GetOrder after verification (HANDOFF.md: "Order lookup security").
 type orderSummary struct {
-	ID          string             `json:"id"`
-	Status      string             `json:"status"`
-	CreatedAt   time.Time          `json:"created_at"`
-	TotalAmount int64              `json:"total_amount"`
-	Items       []orderSummaryItem `json:"items"`
+	ID        string             `json:"id"`
+	Status    string             `json:"status"`
+	CreatedAt time.Time          `json:"created_at"`
+	Items     []orderSummaryItem `json:"items"`
 }
 
 type orderSummaryItem struct {
@@ -267,11 +280,10 @@ func toOrderSummary(ord domain.Order) orderSummary {
 		items = append(items, orderSummaryItem{ProductTitle: it.ProductTitle, Quantity: it.Quantity})
 	}
 	return orderSummary{
-		ID:          ord.ID,
-		Status:      ord.Status,
-		CreatedAt:   ord.CreatedAt,
-		TotalAmount: ord.TotalAmount,
-		Items:       items,
+		ID:        ord.ID,
+		Status:    ord.Status,
+		CreatedAt: ord.CreatedAt,
+		Items:     items,
 	}
 }
 
