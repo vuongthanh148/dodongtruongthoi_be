@@ -3,6 +3,7 @@ package response
 import (
 "encoding/json"
 "net/http"
+"reflect"
 )
 
 type envelope map[string]any
@@ -10,8 +11,20 @@ type envelope map[string]any
 func Success(w http.ResponseWriter, status int, data any) {
 writeJSON(w, status, envelope{
 "success": true,
-"data":    data,
+"data":    normalizeNilSlice(data),
 })
+}
+
+// normalizeNilSlice encodes a nil slice as `[]` instead of `null`.
+func normalizeNilSlice(data any) any {
+	if data == nil {
+		return data
+	}
+	v := reflect.ValueOf(data)
+	if v.Kind() == reflect.Slice && v.IsNil() {
+		return reflect.MakeSlice(v.Type(), 0, 0).Interface()
+	}
+	return data
 }
 
 func Error(w http.ResponseWriter, status int, message string) {
